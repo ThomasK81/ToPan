@@ -23,26 +23,16 @@ urns <- urns[!is.na(urns)]
 metadata <- data.frame(urns)
 
 ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height = "25"), "ToPān v.0.1"), windowTitle = "ToPān v.0.1",
-                 tabPanel("Home", 
-                          sidebarPanel(
-                            sliderInput("bins",
-                                        "Number of bins:",
-                                        min = 1,
-                                        max = 50,
-                                        value = 30)
-                          ),
-                          mainPanel(
-                   plotOutput("distPlot")
-                 )
-                          ),
+                 tabPanel("Home", mainPanel(includeMarkdown("home.md"))),
+                 
                  navbarMenu("Data Input",
                             tabPanel("CTS API", 
                                      fluidPage(
                                        fluidRow(
                                          column(6, "Text Input & Processing",
-                                           selectInput("cts_urn", label = "CTS URN", choices = urns),
-                                           checkboxInput("morphology", "Morphological Normalisation (currently only for Latin and Greek)", TRUE),
-                                           textInput("add_stopwords", label = "Additional Stopwords", value = "")
+                                                selectInput("cts_urn", label = "CTS URN", choices = urns),
+                                                checkboxInput("morphology", "Morphological Normalisation (currently only for Latin and Greek)", TRUE),
+                                                textInput("add_stopwords", label = "Additional Stopwords", value = "")
                                          ),
                                          column(6, "Topic Modelling",
                                                 sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
@@ -50,122 +40,93 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                                 sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
                                                 submitButton("Submit")
                                          )
-                                         ))
+                                       ))
                             ),
                             tabPanel("Local CAPITainS", 
-                                     fluidPage(
-                                       sidebarLayout(
-                                         sidebarPanel(
-                                           textInput("api_url", label = "API URL", value = ""),
-                                           selectInput("cts_urn", label = "CTS URN", choices = urns),
-                                           checkboxInput("morphology", "Morphological Normalisation (currently only for Latin and Greek)", TRUE),
-                                           textInput("add_stopwords", label = "Additional Stopwords", value = ""),
-                                           sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
-                                           sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
-                                           sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
-                                           submitButton("Submit")
-                                         ),
-                                         mainPanel(
-                                           tabsetPanel(
-                                             tabPanel("Search Results", tableOutput("catalogue")),
-                                             tabPanel("Download Data", helpText(   
-                                               a("Click Here to Download the Search Results",     href="/www/catalogue/catalogue.csv"),
-                                               a("Click Here to Download the Search Results",     href="/www/catalogue/catalogue.csv")
-                                             ))
-                                           ))))
-                            ),
+                                     sidebarLayout(
+                                       sidebarPanel(
+                                         textInput("api_url", label = "API URL", value = ""),
+                                         selectInput("cts_urn", label = "CTS URN", choices = urns),
+                                         checkboxInput("morphology", "Morphological Normalisation (currently only for Latin and Greek)", TRUE),
+                                         textInput("add_stopwords", label = "Additional Stopwords", value = ""),
+                                         sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
+                                         sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
+                                         sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
+                                         submitButton("Submit")
+                                       ),
+                                       mainPanel())),
                             tabPanel("DNZ API",
-                                     fluidPage(
-                                       sidebarLayout(
-                                         sidebarPanel(
-                                           textInput("search_text", label = "Search Text", value = "christchurch+earthquake"),
-                                           textInput("api_key", label = "DNZ API Key", value = ""),
-                                           radioButtons("collection", label = "Collection", 
-                                                        choices = list("ATL Cartoon Descriptions" = 1, "Index NZ Abstracts" = 2, "no search" = 3
-                                                        ), selected = 3),
-                                           textInput("date", label = "Year", value = "2011"),
-                                           textInput("add_stopwords", label = "Additional Stopwords", value = "christchurch earthquake"),
-                                           sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
-                                           sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
-                                           sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
-                                           submitButton("Submit")
-                                         ),
-                                         mainPanel(
-                                           tabsetPanel(
-                                             tabPanel("Search Results", tableOutput("catalogue")),
-                                             tabPanel("Download Data", helpText(   
-                                               a("Click Here to Download the Search Results",     href="/www/catalogue/catalogue.csv"),
-                                               a("Click Here to Download the Search Results",     href="/www/catalogue/catalogue.csv")
-                                             ))
-                                           ))))
-                            ),
+                                     sidebarLayout(
+                                       sidebarPanel(
+                                         textInput("search_text", label = "Search Text", value = "christchurch+earthquake"),
+                                         textInput("api_key", label = "DNZ API Key", value = ""),
+                                         radioButtons("collection", label = "Collection", 
+                                                      choices = list("ATL Cartoon Descriptions" = 1, "Index NZ Abstracts" = 2, "no search" = 3
+                                                      ), selected = 3),
+                                         textInput("date", label = "Year", value = "2011"),
+                                         textInput("add_stopwords", label = "Additional Stopwords", value = "christchurch earthquake"),
+                                         sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
+                                         sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
+                                         sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
+                                         submitButton("Submit")
+                                       ),
+                                       mainPanel())),
                             tabPanel("CSV",
-                                     fluidPage(
-                                       sidebarLayout(
-                                         sidebarPanel(
-                                           fileInput('file1', 'Choose CSV File',
-                                                     accept=c('text/csv', 
-                                                              'text/comma-separated-values,text/plain', 
-                                                              '.csv')),
-                                           checkboxInput('header', 'Header', TRUE),
-                                           radioButtons('sep', 'Separator',
-                                                        c(Comma=',',
-                                                          Semicolon=';',
-                                                          Tab='\t'),
-                                                        ','),
-                                           radioButtons('quote', 'Quote',
-                                                        c(None='',
-                                                          'Double Quote'='"',
-                                                          'Single Quote'="'"),
-                                                        '"'),
-                                           checkboxInput("morphology", "Morphological Normalisation (currently only for Latin and Greek)", TRUE),
-                                           textInput("add_stopwords", label = "Additional Stopwords", value = ""),
-                                           sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
-                                           sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
-                                           sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
-                                           submitButton("Submit")
-                                         ),
-                                         mainPanel(
-                                           tabsetPanel(
-                                             tabPanel("Search Results", tableOutput("catalogue")),
-                                             tabPanel("Download Data", helpText(   
-                                               a("Click Here to Download the Search Results",     href="/www/catalogue/catalogue.csv"),
-                                               a("Click Here to Download the Search Results",     href="/www/catalogue/catalogue.csv")
-                                             ))
-                                           ))))
-                            )
-                 ),
+                                     sidebarLayout(
+                                       sidebarPanel(
+                                         fileInput('file1', 'Choose CSV File',
+                                                   accept=c('text/csv', 
+                                                            'text/comma-separated-values,text/plain', 
+                                                            '.csv')),
+                                         checkboxInput('header', 'Header', TRUE),
+                                         radioButtons('sep', 'Separator',
+                                                      c(Comma=',',
+                                                        Semicolon=';',
+                                                        Tab='\t'),
+                                                      ','),
+                                         radioButtons('quote', 'Quote',
+                                                      c(None='',
+                                                        'Double Quote'='"',
+                                                        'Single Quote'="'"),
+                                                      '"'),
+                                         checkboxInput("morphology", "Morphological Normalisation (currently only for Latin and Greek)", TRUE),
+                                         textInput("add_stopwords", label = "Additional Stopwords", value = ""),
+                                         sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
+                                         sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
+                                         sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
+                                         submitButton("Submit")
+                                       ),
+                                       mainPanel()))),
+                 
                  tabPanel("Read",
                           mainPanel(
-                            htmlOutput("catalogue")
+                            dataTableOutput("catalogue")
                           )),
+                 
                  tabPanel("LDAvis", 
                           # Sidebar with a slider input for the number of bins
-                          sidebarLayout(
-                            sidebarPanel(
-                              sliderInput("bins",
-                                          "Number of bins:",
-                                          min = 1,
-                                          max = 50,
-                                          value = 30)
-                            ),
-                            
-                            # Show a plot of the generated distribution
-                            mainPanel(
-                              plotOutput("distPlot")
-                            )
-                          )),
+                          mainPanel(htmlOutput("topicmodels"))
+                          ),
+                 
+                 navbarMenu("LDA Tables", 
+                            tabPanel("DocumentTopic (θ)", mainPanel(includeMarkdown("home.md"))),
+                            tabPanel("TermTopic (φ)", mainPanel(includeMarkdown("home.md")))
+                 ),
+                 
                  navbarMenu("About", 
-                            tabPanel("About ToPān"),
-                            tabPanel("About Me")
+                            tabPanel("About ToPān", mainPanel(includeMarkdown("home.md"))),
+                            tabPanel("About Me", mainPanel(includeMarkdown("home.md")))
+                            )
                  )
-)
 
 server <- function(input, output, session) {
   
   output$topicmodels <- renderUI({
     getPage<-function() {
-      return(includeHTML("~/OneDrive/GithubProjects/TopicModellingR/DH2016/www/temp_vis/index.html"))
+      return(tags$iframe(src = "./temp_vis/index.html"
+                         , style="width:150%;",  frameborder="0"
+                         ,id="iframe"
+                         , height = "800px"))
     }
     getPage()})
   
@@ -175,6 +136,11 @@ server <- function(input, output, session) {
     print(input$bins)
     # draw the histogram with the specified number of bins
     hist(x, breaks = bins, col = 'darkgray', border = 'white')
-  })}
+  })
+  
+  output$catalogue <- renderDataTable({
+    read.csv("./www/corpus.csv", header = TRUE, sep = ",", quote = "\"")
+  })
+  }
 
 shinyApp(ui = ui, server = server)
