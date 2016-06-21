@@ -27,34 +27,27 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                  
                  navbarMenu("Data Input",
                             tabPanel("CTS API", 
-                                     fluidPage(
-                                       fluidRow(
-                                         column(6, "Text Input & Processing",
-                                                selectInput("cts_urn", label = "CTS URN", choices = urns),
-                                                checkboxInput("morphology", "Morphological Normalisation (currently only for Latin and Greek)", TRUE),
-                                                textInput("add_stopwords", label = "Additional Stopwords", value = "")
+                                     sidebarLayout(
+                                       sidebarPanel(
+                                         selectInput("cts_urn", label = "CTS URN", choices = urns),
+                                         checkboxInput("morphology", "Morphological Normalisation (currently only for Latin and Greek)", TRUE),
+                                         submitButton("Submit")
                                          ),
-                                         column(6, "Topic Modelling",
-                                                sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
-                                                sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
-                                                sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
-                                                submitButton("Submit")
-                                         )
-                                       ))
-                            ),
+                                       mainPanel(
+                                         dataTableOutput("catalogue")
+                                       )
+                                       )),
                             tabPanel("Local CAPITainS", 
                                      sidebarLayout(
                                        sidebarPanel(
                                          textInput("api_url", label = "API URL", value = ""),
                                          selectInput("cts_urn", label = "CTS URN", choices = urns),
                                          checkboxInput("morphology", "Morphological Normalisation (currently only for Latin and Greek)", TRUE),
-                                         textInput("add_stopwords", label = "Additional Stopwords", value = ""),
-                                         sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
-                                         sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
-                                         sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
                                          submitButton("Submit")
                                        ),
-                                       mainPanel())),
+                                       mainPanel(
+                                         dataTableOutput("catalogue2")
+                                       ))),
                             tabPanel("DNZ API",
                                      sidebarLayout(
                                        sidebarPanel(
@@ -64,13 +57,11 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                                       choices = list("ATL Cartoon Descriptions" = 1, "Index NZ Abstracts" = 2, "no search" = 3
                                                       ), selected = 3),
                                          textInput("date", label = "Year", value = "2011"),
-                                         textInput("add_stopwords", label = "Additional Stopwords", value = "christchurch earthquake"),
-                                         sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
-                                         sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
-                                         sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
                                          submitButton("Submit")
                                        ),
-                                       mainPanel())),
+                                       mainPanel(
+                                         dataTableOutput("catalogue3")
+                                       ))),
                             tabPanel("CSV",
                                      sidebarLayout(
                                        sidebarPanel(
@@ -90,18 +81,27 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                                         'Single Quote'="'"),
                                                       '"'),
                                          checkboxInput("morphology", "Morphological Normalisation (currently only for Latin and Greek)", TRUE),
-                                         textInput("add_stopwords", label = "Additional Stopwords", value = ""),
-                                         sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
-                                         sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
-                                         sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
                                          submitButton("Submit")
                                        ),
-                                       mainPanel()))),
+                                       mainPanel(
+                                         dataTableOutput("catalogue4")
+                                       )))),
                  
-                 tabPanel("Read",
-                          mainPanel(
-                            dataTableOutput("catalogue")
-                          )),
+                 tabPanel("Morphology Service", 
+                          # Sidebar with a slider input for the number of bins
+                          mainPanel()
+                 ),
+                 
+                 tabPanel("LDA TM",
+                          sidebarLayout(
+                            sidebarPanel(
+                              textInput("add_stopwords", label = "Additional Stopwords", value = "christchurch earthquake"),
+                              sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
+                              sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
+                              sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
+                              submitButton("Submit")
+                            ),
+                            mainPanel())),
                  
                  tabPanel("LDAvis", 
                           # Sidebar with a slider input for the number of bins
