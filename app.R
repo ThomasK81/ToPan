@@ -139,7 +139,9 @@ server <- function(input, output, session) {
   })
   
   output$catalogue <- renderDataTable({
-    read.csv("./www/corpus.csv", header = TRUE, sep = ",", quote = "\"")
+    withProgress(message = 'Reading Texts', value = 0, {
+      read.csv("./www/corpus.csv", header = TRUE, sep = ",", quote = "\"")
+    })
   })
   }
 
