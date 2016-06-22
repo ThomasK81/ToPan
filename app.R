@@ -234,6 +234,8 @@ server <- function(input, output, session) {
     output_list <- list()
     for (i in 1:length(batch_urls)) {
       counter <- 0
+      counter2 <- i/5
+      if(counter2%%1==0) {Sys.sleep(60)}
       temp_vector <- getURIAsynchronous(batch_urls[[i]])
       while(length(which(temp_vector == "")) > 0) {
         print(paste("Fetch rest of batch-request ", as.character(i), "/", as.character(length(batch_urls)), sep="")); 
