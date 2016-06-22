@@ -216,22 +216,6 @@ server <- function(input, output, session) {
     } 
     
     #### fetch texts
-    withProgress(message = 'Fetch Texts', value = 0, {
-    urls <- paste(baseURL, reffs, sep = "")
-    batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-    output_list <- list()
-    for (i in 1:length(batch_urls)) {
-      counter <- 0
-      temp_vector <- getURIAsynchronous(batch_urls[[i]])
-      while(length(which(temp_vector == "")) > 0) {
-        print(paste("Fetch rest of batch-request ", as.character(i), "/", as.character(length(batch_urls)), sep="")); 
-        temp_vector[which(temp_vector == "")] <- getURIAsynchronous(batch_urls[[i]][which(temp_vector == "")]);
-        counter <- counter+1; if (counter == 3) break}
-      output_list[[i]] <- temp_vector
-      incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
-    }
-    XMLcorpus <- unlist(output_list)})
-    
     XMLminer <- function(x){
       xname <- xmlName(x)
       xattrs <- xmlAttrs(x)
@@ -244,11 +228,31 @@ server <- function(input, output, session) {
       result <- gsub("\t", "", result, fixed = FALSE)
       result}
     
-    withProgress(message = 'Parse Texts', value = 0, {
-      corpus <- unlist(lapply(XMLcorpus, XMLpassage1))
+    withProgress(message = 'Fetch Texts', value = 0, {
+    urls <- paste(baseURL, reffs, sep = "")
+    batch_urls <- split(urls, ceiling(seq_along(urls)/100))
+    output_list <- list()
+    for (i in 1:length(batch_urls)) {
+      counter <- 0
+      temp_vector <- getURIAsynchronous(batch_urls[[i]])
+      while(length(which(temp_vector == "")) > 0) {
+        print(paste("Fetch rest of batch-request ", as.character(i), "/", as.character(length(batch_urls)), sep="")); 
+        temp_vector[which(temp_vector == "")] <- getURIAsynchronous(batch_urls[[i]][which(temp_vector == "")]);
+        counter <- counter+1; if (counter == 3) {temp_vector[which(temp_vector == "")] <- "NotRetrieved"}}
+      temp_vector[which(temp_vector != "NotRetrieved")] <- unlist(lapply(temp_vector[which(temp_vector != "NotRetrieved")], XMLpassage1))
+      output_list[[i]] <- temp_vector
+      incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
+    }
+    corpus <- unlist(output_list)})
+    
+    
+    
+    # withProgress(message = 'Parse Texts', value = 0, {
+    #  corpus <- unlist(lapply(XMLcorpus, XMLpassage1))
     corpus.df <- data.frame(reffs, corpus)
     colnames(corpus.df) <- c("identifier", "text")
-    write.csv(corpus.df, "corpus.csv", row.names = FALSE)})
+    write.csv(corpus.df, "./www/corpus.csv", row.names = FALSE)
+    # })
     withProgress(message = 'Reading Texts', value = 0, {
       read.csv("./www/corpus.csv", header = TRUE, sep = ",", quote = "\"")
     })

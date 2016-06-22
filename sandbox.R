@@ -27,7 +27,7 @@ metadata <- data.frame(urns)
 
 baseURL <- "http://cts.perseids.org/api/cts/?request=GetPassage&urn="
 reffURL <- "http://cts.perseids.org/api/cts/?request=GetValidReff&urn="
-requestURN <- urns[340]
+requestURN <- urns[2]
 
 fetch_reffs <- function(x){
   message("Retrieve Reffs for ", x)
@@ -104,24 +104,6 @@ if(length(fourth_reffs) != 0) {
 } 
 
 #### fetch texts
-urls <- paste(baseURL, reffs, sep = "")
-t1 <- Sys.time()
-batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-output_list <- list()
-for (i in 1:length(batch_urls)) {
-  counter <- 0
-  temp_vector <- getURIAsynchronous(batch_urls[[i]])
-  while(length(which(temp_vector == "")) > 0) {
-    print(paste("Fetch rest of batch-request ", as.character(i), "/", as.character(length(batch_urls)), sep="")); 
-    temp_vector[which(temp_vector == "")] <- getURIAsynchronous(batch_urls[[i]][which(temp_vector == "")]);
-    counter <- counter+1; if (counter == 3) break}
-  output_list[[i]] <- temp_vector
-  print(paste("Fetched ", as.character(i), "/", as.character(length(batch_urls)), sep=""))
-}
-XMLcorpus <- unlist(output_list)
-t2 <- Sys.time()
-Time_fetchingBatches <- t2 - t1
-Time_fetchingBatches
 
 XMLminer <- function(x){
   xname <- xmlName(x)
@@ -129,13 +111,46 @@ XMLminer <- function(x){
   c(sapply(xmlChildren(x), xmlValue), name = xname, xattrs)}
 
 XMLpassage1 <-function(xdata){
-  result <- xmlParse(xdata)
-  result <- as.data.frame(t(xpathSApply(result, "//*/tei:body", XMLminer)), stringsAsFactors = FALSE)[[1]]
-  result <- gsub("\n", "", result, fixed = FALSE)
-  result <- gsub("\t", "", result, fixed = FALSE)
-  result}
+  if (xdata == "NotRetrieved") {return(xdata)
+    } else {result <- xmlParse(xdata)
+    result <- as.data.frame(t(xpathSApply(result, "//*/tei:body", XMLminer)), stringsAsFactors = FALSE)[[1]]
+    result <- gsub("\n", "", result, fixed = FALSE)
+    result <- gsub("\t", "", result, fixed = FALSE)
+    return(result)}}
 
-corpus <- unlist(lapply(XMLcorpus, XMLpassage1))
+urls <- paste(baseURL, reffs, sep = "")
+t1 <- Sys.time()
+batch_urls <- split(urls, ceiling(seq_along(urls)/100))
+output_list <- vector("list", length(batch_urls))
+for (i in 1:length(batch_urls)) {
+  counter <- 0
+  tryCatch({
+    temp_vector <- getURIAsynchronous(batch_urls[[i]])},
+    error = function(err) {
+      temp_vector[which(temp_vector == "")] <- c(rep("NotRetrieved", length(which(temp_vector == ""))))
+    })  
+  tryCatch({
+    while(length(which(temp_vector == "")) > 0) {
+    Sys.sleep(1);
+    if (counter == 3) {temp_vector[which(temp_vector == "")] <- c(rep("NotRetrieved", length(which(temp_vector == ""))))}; if (counter == 3) break; counter <- counter+1;
+    print(paste("Fetch rest of batch-request ", as.character(i), "/", as.character(length(batch_urls)), sep="")); 
+    temp_vector[which(temp_vector == "")] <- getURIAsynchronous(batch_urls[[i]][which(temp_vector == "")])}
+  },
+  error = function(err) {
+    temp_vector[which(temp_vector == "")] <- c(rep("NotRetrieved", length(which(temp_vector == ""))))
+  })
+  temp_vector <- unlist(lapply(temp_vector, XMLpassage1))
+  output_list[[i]] <- temp_vector
+  rm(temp_vector)
+  Sys.sleep(5)
+  print(paste("Fetched ", as.character(i), "/", as.character(length(batch_urls)), sep=""))
+}
+corpus <- unlist(output_list)
+t2 <- Sys.time()
+Time_fetchingBatches <- t2 - t1
+Time_fetchingBatches
+
+# corpus <- unlist(lapply(corpus, XMLpassage1))
 corpus.df <- data.frame(reffs, corpus)
 colnames(corpus.df) <- c("identifier", "text")
 write.csv(corpus.df, "corpus.csv", row.names = FALSE)
