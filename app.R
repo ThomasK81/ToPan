@@ -130,15 +130,125 @@ server <- function(input, output, session) {
     }
     getPage()})
   
-  output$distPlot <- renderPlot({
-    x    <- faithful[, 2]  # Old Faithful Geyser data
-    bins <- seq(min(x), max(x), length.out = input$bins + 1)
-    print(input$bins)
-    # draw the histogram with the specified number of bins
-    hist(x, breaks = bins, col = 'darkgray', border = 'white')
-  })
-  
   output$catalogue <- renderDataTable({
+    baseURL <- "http://cts.perseids.org/api/cts/?request=GetPassage&urn="
+    reffURL <- "http://cts.perseids.org/api/cts/?request=GetValidReff&urn="
+    requestURN <- input$cts_urn
+    
+    fetch_reffs <- function(x){
+      message("Retrieve Reffs for ", x)
+      URL <- paste(reffURL, x, sep = "")
+      URLcontent <- tryCatch({getURLContent(URL)},
+                             error = function(err)
+                             {result <- "NoReturn"
+                             return(result)})
+      reffs <- unlist(strsplit(URLcontent, split="<urn>|</urn>"))
+      reffs <- reffs[2:length(reffs)]
+      reffs <- reffs[seq(1, length(reffs), 2)]
+      return(reffs)
+    }
+    
+    parse_reffs <- function(x){
+      reffs <- unlist(strsplit(x, split="<urn>|</urn>"))
+      reffs <- reffs[2:length(reffs)]
+      reffs <- reffs[seq(1, length(reffs), 2)]
+      return(reffs)
+    }
+    
+    withProgress(message = 'First Set of References', value = 0, {
+      first_reffs <- fetch_reffs(requestURN)
+    })
+    
+    withProgress(message = 'Second Set of References', value = 0, {
+      urls <- paste(reffURL, first_reffs, sep = "")
+    
+    batch_urls <- split(urls, ceiling(seq_along(urls)/100))
+    output_list <- list()
+    for (i in 1:length(batch_urls)) {
+      temp_vector <- getURIAsynchronous(batch_urls[[i]])
+      temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
+      temp_vector <- temp_vector[!is.na(temp_vector)]
+      if(length(temp_vector) == 0) break
+      output_list[[i]] <- temp_vector
+      incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
+    }
+    second_reffs <- unlist(output_list)
+    })
+    
+    withProgress(message = 'Third Set of References', value = 0, {
+      urls <- paste(reffURL, second_reffs, sep = "")
+    
+    batch_urls <- split(urls, ceiling(seq_along(urls)/100))
+    output_list <- list()
+    for (i in 1:length(batch_urls)) {
+      temp_vector <- getURIAsynchronous(batch_urls[[i]])
+      temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
+      temp_vector <- temp_vector[!is.na(temp_vector)]
+      if(length(temp_vector) == 0) break
+      output_list[[i]] <- temp_vector
+      incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
+    }
+    third_reffs <- unlist(output_list)})
+    
+    withProgress(message = 'Fourth Set of References', value = 0, {
+      urls <- paste(reffURL, third_reffs, sep = "")
+    batch_urls <- split(urls, ceiling(seq_along(urls)/100))
+    output_list <- list()
+    for (i in 1:length(batch_urls)) {
+      temp_vector <- getURIAsynchronous(batch_urls[[i]])
+      temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
+      temp_vector <- temp_vector[!is.na(temp_vector)]
+      if(length(temp_vector) == 0) break
+      output_list[[i]] <- temp_vector
+      incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
+    }
+    fourth_reffs <- unlist(output_list)})
+    
+    
+    if(length(fourth_reffs) != 0) {
+      reffs <- fourth_reffs
+    } else if(length(third_reffs) != 0) {
+      reffs <- third_reffs
+    } else if(length(second_reffs) != 0) {
+      reffs <- second_reffs
+    } else {
+      reffs <- first_reffs
+    } 
+    
+    #### fetch texts
+    withProgress(message = 'Fetch Texts', value = 0, {
+    urls <- paste(baseURL, reffs, sep = "")
+    batch_urls <- split(urls, ceiling(seq_along(urls)/100))
+    output_list <- list()
+    for (i in 1:length(batch_urls)) {
+      counter <- 0
+      temp_vector <- getURIAsynchronous(batch_urls[[i]])
+      while(length(which(temp_vector == "")) > 0) {
+        print(paste("Fetch rest of batch-request ", as.character(i), "/", as.character(length(batch_urls)), sep="")); 
+        temp_vector[which(temp_vector == "")] <- getURIAsynchronous(batch_urls[[i]][which(temp_vector == "")]);
+        counter <- counter+1; if (counter == 3) break}
+      output_list[[i]] <- temp_vector
+      incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
+    }
+    XMLcorpus <- unlist(output_list)})
+    
+    XMLminer <- function(x){
+      xname <- xmlName(x)
+      xattrs <- xmlAttrs(x)
+      c(sapply(xmlChildren(x), xmlValue), name = xname, xattrs)}
+    
+    XMLpassage1 <-function(xdata){
+      result <- xmlParse(xdata)
+      result <- as.data.frame(t(xpathSApply(result, "//*/tei:body", XMLminer)), stringsAsFactors = FALSE)[[1]]
+      result <- gsub("\n", "", result, fixed = FALSE)
+      result <- gsub("\t", "", result, fixed = FALSE)
+      result}
+    
+    withProgress(message = 'Parse Texts', value = 0, {
+      corpus <- unlist(lapply(XMLcorpus, XMLpassage1))
+    corpus.df <- data.frame(reffs, corpus)
+    colnames(corpus.df) <- c("identifier", "text")
+    write.csv(corpus.df, "corpus.csv", row.names = FALSE)})
     withProgress(message = 'Reading Texts', value = 0, {
       read.csv("./www/corpus.csv", header = TRUE, sep = ",", quote = "\"")
     })
