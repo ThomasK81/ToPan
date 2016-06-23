@@ -239,20 +239,8 @@ server <- function(input, output, session) {
     batch_urls <- split(urls, ceiling(seq_along(urls)/100))
     output_list <- vector("list", length(batch_urls))
     for (i in 1:length(batch_urls)) {
-<<<<<<< HEAD
       temp_vector <- getURI(batch_urls[[i]], async = FALSE)
       temp_vector <- unlist(lapply(temp_vector, XMLpassage1))
-=======
-      counter <- 0
-      counter2 <- i/5
-      if(counter2%%1==0) {Sys.sleep(60)}
-      temp_vector <- getURIAsynchronous(batch_urls[[i]])
-      while(length(which(temp_vector == "")) > 0) {
-        print(paste("Fetch rest of batch-request ", as.character(i), "/", as.character(length(batch_urls)), sep="")); 
-        temp_vector[which(temp_vector == "")] <- getURIAsynchronous(batch_urls[[i]][which(temp_vector == "")]);
-        counter <- counter+1; if (counter == 3) {temp_vector[which(temp_vector == "")] <- "NotRetrieved"}}
-      temp_vector[which(temp_vector != "NotRetrieved")] <- unlist(lapply(temp_vector[which(temp_vector != "NotRetrieved")], XMLpassage1))
->>>>>>> f2b6e7649044efc0116008b7010cffd4fd02d88d
       output_list[[i]] <- temp_vector
       rm(temp_vector)
       incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))

@@ -123,30 +123,8 @@ t1 <- Sys.time()
 batch_urls <- split(urls, ceiling(seq_along(urls)/100))
 output_list <- vector("list", length(batch_urls))
 for (i in 1:length(batch_urls)) {
-<<<<<<< HEAD
   temp_vector <- getURL(batch_urls[[i]], async = FALSE)
-=======
-  counter <- 0
-  counter2 <- i/5
-  if(counter2%%1==0) {Sys.sleep(100)}
-  temp_vector <- vector(length = length(batch_urls[[i]]))
-  tryCatch({
-    temp_vector <- getURIAsynchronous(batch_urls[[i]], opts = list(timeout = 20, maxredirs = 3, verbose = TRUE, followLocation = TRUE))},
-    error = function(err) {
-      temp_vector[which(temp_vector == "")] <- c(rep("NotRetrieved", length(which(temp_vector == ""))))
-    })  
-  #tryCatch({
-  #  while(length(which(temp_vector == "")) > 0) {
-  #  Sys.sleep(1);
-  #  if (counter == 3) {temp_vector[which(temp_vector == "")] <- c(rep("NotRetrieved", length(which(temp_vector == ""))))}; if (counter == 3) break; counter <- counter+1;
-  #  print(paste("Fetch rest of batch-request ", as.character(i), "/", as.character(length(batch_urls)), sep="")); 
-  #  temp_vector[which(temp_vector == "")] <- getURIAsynchronous(batch_urls[[i]][which(temp_vector == "")])}
-  #},
-  #error = function(err) {
-  #  temp_vector[which(temp_vector == "")] <- c(rep("NotRetrieved", length(which(temp_vector == ""))))
-  #})
-  gc()
->>>>>>> f2b6e7649044efc0116008b7010cffd4fd02d88d
+
   temp_vector <- unlist(lapply(temp_vector, XMLpassage1))
   output_list[[i]] <- temp_vector
   rm(temp_vector)
