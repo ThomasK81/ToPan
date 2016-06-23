@@ -25,9 +25,9 @@ metadata <- data.frame(urns)
 
 #### fetch reffs
 
-baseURL <- "http://cts.perseids.org/api/cts/?request=GetPassage&urn="
-reffURL <- "http://cts.perseids.org/api/cts/?request=GetValidReff&urn="
-requestURN <- urns[2]
+baseURL <- "http://192.168.99.100:32778/api/cts/?request=GetPassage&urn="
+reffURL <- "http://192.168.99.100:32778/api/cts/?request=GetValidReff&urn="
+requestURN <- "urn:cts:latinLit:phi0119.phi002.perseus-lat2"
 
 fetch_reffs <- function(x){
   message("Retrieve Reffs for ", x)
@@ -123,6 +123,9 @@ t1 <- Sys.time()
 batch_urls <- split(urls, ceiling(seq_along(urls)/100))
 output_list <- vector("list", length(batch_urls))
 for (i in 1:length(batch_urls)) {
+<<<<<<< HEAD
+  temp_vector <- getURL(batch_urls[[i]], async = FALSE)
+=======
   counter <- 0
   counter2 <- i/5
   if(counter2%%1==0) {Sys.sleep(100)}
@@ -143,6 +146,7 @@ for (i in 1:length(batch_urls)) {
   #  temp_vector[which(temp_vector == "")] <- c(rep("NotRetrieved", length(which(temp_vector == ""))))
   #})
   gc()
+>>>>>>> f2b6e7649044efc0116008b7010cffd4fd02d88d
   temp_vector <- unlist(lapply(temp_vector, XMLpassage1))
   output_list[[i]] <- temp_vector
   rm(temp_vector)
