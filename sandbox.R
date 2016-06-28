@@ -1,141 +1,138 @@
+setwd("~/OneDrive/GithubProjects/ToPan")
 library(RCurl)
 library(XML)
 
-xml.url <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
-xmlfile <- xmlTreeParse(xml.url)
-xmltop <- xmlRoot(xmlfile)
-xmltop <- xmltop[[2]]
-xmltop <- xmltop[[1]]
-
-output <- list()
+data <- xmlParse("treebank.xml")
+xml_data <- xmlToList(data)
+xml_data <- xml_data[5:(length(xml_data)-1)]
+df <- list()
 counter <- 0
-for (i in 1:length(xmltop)) {
-  for (j in 1:length(xmltop[[i]])) {
-    for (x in 1:length(xmltop[[i]][[j]])) {
-      counter <- counter + 1
-      output[[counter]] <- xmlAttrs(xmltop[[i]][[j]][[x]])["urn"]
-    }
+for (i in 1:length(xml_data)) {
+  for (j in 1:(length(xml_data[[i]])-1)) {
+    counter <- counter + 1
+    row_number <- counter
+    df[[counter]] <- c(xml_data[[i]][[length(xml_data[[i]])]], xml_data[[i]][[j]])
   }
 }
-urns <- unique(unlist(output))
-urns <- urns[!is.na(urns)]
-metadata <- data.frame(urns)
+df <- df[-which(unlist(lapply(df, length)) == 9)]
+df <- data.frame(df, stringsAsFactors = FALSE)
+df <- t(df)
 
-#### fetch reffs & texts
-
-#### fetch reffs
-
-baseURL <- "http://192.168.99.100:32778/api/cts/?request=GetPassage&urn="
-reffURL <- "http://192.168.99.100:32778/api/cts/?request=GetValidReff&urn="
-requestURN <- "urn:cts:latinLit:phi0119.phi002.perseus-lat2"
-
-fetch_reffs <- function(x){
-  message("Retrieve Reffs for ", x)
-  URL <- paste(reffURL, x, sep = "")
-  URLcontent <- tryCatch({getURLContent(URL)},
-                         error = function(err)
-                         {result <- "NoReturn"
-                         return(result)})
-  reffs <- unlist(strsplit(URLcontent, split="<urn>|</urn>"))
-  reffs <- reffs[2:length(reffs)]
-  reffs <- reffs[seq(1, length(reffs), 2)]
-  return(reffs)
+identifier <- vector()
+corpus <- vector()
+for (i in 1:max(as.integer(df[,1]))) {
+  location <- which(as.integer(df[,1]) == i)
+  corpus[i] <- paste(unname(df[location, 5]), sep = "", collapse = " ")
+  identifier[i] <- paste(unname(df[location, 9])[1], "@", unname(df[location, 5])[1], "-", tail(unlist(strsplit(unname(df[location, 9])[length(unname(df[location, 9]))-1], ":", fixed = TRUE)), n = 1), "@", unname(df[location, 5])[length(unname(df[location, 5]))-1], sep = "")
 }
+corpus <- data.frame(as.character(identifier), as.character(corpus))
+names(corpus) <- c("identifier", "text")
 
-parse_reffs <- function(x){
-  reffs <- unlist(strsplit(x, split="<urn>|</urn>"))
-  reffs <- reffs[2:length(reffs)]
-  reffs <- reffs[seq(1, length(reffs), 2)]
-  return(reffs)
+saveRDS(corpus, "corpus.rds")
+
+withProgress(message = 'Reading Texts', value = 0, {
+  research_corpus <- readRDS("corpus.rds")
+})
+stopword_corpus <- as.character(research_corpus[,2])
+output_names <- as.character(research_corpus[,1])
+research_corpus <- as.character(research_corpus[,2])
+
+withProgress(message = 'Start normalisation', value = 0, {
+  research_corpus <- gsub("^[[:space:]]+", "", research_corpus) # remove whitespace at beginning of documents
+  research_corpus <- gsub("[[:space:]]+$", "", research_corpus) # remove whitespace at end of documents
+  research_corpus <- gsub("[[:space:]]+", " ", research_corpus) # remove multiple whitespace
+  research_corpus <- trimws(research_corpus)
+  
+  output_names <- gsub("^[[:space:]]+", "", output_names) # remove whitespace at beginning of documents
+  output_names <- gsub("[[:space:]]+$", "", output_names) # remove whitespace at end of documents
+  output_names <- gsub("[[:space:]]+", " ", output_names) # remove multiple whitespace
+  output_names <- trimws(output_names)
+  
+  research_corpus <- gsub("[[:punct:]]", " ", research_corpus)  # replace punctuation with space
+  research_corpus <- gsub("[[:cntrl:]]", " ", research_corpus)  # replace control characters with space
+  research_corpus <- gsub("^[[:space:]]+", "", research_corpus) # remove whitespace at beginning of documents
+  research_corpus <- gsub("[[:space:]]+$", "", research_corpus) # remove whitespace at end of documents
+  research_corpus <- gsub("[0-9]", "", research_corpus) #remove numbers
+  
+  incProgress(0.1, detail = "tokenize on space")
+  # tokenize on space and output as a list:
+  doc.list <- strsplit(research_corpus, "[[:space:]]+")
+  all_words <- unlist(doc.list)
+  incProgress(0.1, detail = "compute terms")
+  # compute the table of terms:
+  term.table <- table(all_words)
+  term.table <- sort(term.table, decreasing = TRUE)
+  
+  incProgress(0.1, detail = "determing stopwords")
+  # determing stopwords
+  
+  stopword_corpus <- gsub("[[:punct:]]", " ", stopword_corpus)  # replace punctuation with space
+  stopword_corpus <- gsub("[[:cntrl:]]", " ", stopword_corpus)  # replace control characters with space
+  stopword_corpus <- gsub("^[[:space:]]+", "", stopword_corpus) # remove whitespace at beginning of documents
+  stopword_corpus <- gsub("[[:space:]]+$", "", stopword_corpus) # remove whitespace at end of documents
+  stopword_corpus <- gsub("[0-9]", "", stopword_corpus) #remove numbers
+  
+  # tokenize stopword_corpus on space and output as a list:
+  doc.list2 <- strsplit(stopword_corpus, "[[:space:]]+")
+  
+  # compute the table of stop_words:
+  all_for_stop_words <- unlist(doc.list2)
+  term.table2 <- table(all_for_stop_words)
+  term.table2 <- sort(term.table2, decreasing = TRUE)
+  
+  stop_words <- as.data.frame(term.table2)
+  rm(term.table2)
+  stop_words <- row.names(as.data.frame(stop_words[1:200,]))
+  occurences <- 5
+  del <- names(term.table) %in% stop_words | term.table < occurences
+  term.table <- term.table[!del]
+  vocab <- names(term.table)
+})
+
+# now put the documents into the format required by the lda package:
+get.terms <- function(x) {
+  index <- match(x, vocab)
+  index <- index[!is.na(index)]
+  rbind(as.integer(index - 1), as.integer(rep(1, length(index))))
 }
+documents <- lapply(doc.list, get.terms)
 
-first_reffs <- fetch_reffs(requestURN)
+# Compute some statistics related to the data set:
+D <- length(documents)  # number of documents (2,000)
+W <- length(vocab)  # number of terms in the vocab (14,568)
+doc.length <- sapply(documents, function(x) sum(x[2, ]))  # number of tokens per document [312, 288, 170, 436, 291, ...]
+N <- sum(doc.length)  # total number of tokens in the data (546,827)
+term.frequency <- as.integer(term.table)  # frequencies of terms in the corpus [8939, 5544, 2411, 2410, 2143, ...]
 
-urls <- paste(reffURL, first_reffs, sep = "")
+# Fit the model:
+set.seed(73)
+K <- 12
+iterations <- 500
+alpha <- 0.2
+eta <- 0.2
+number_terms <- 30
 
-batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-output_list <- list()
-for (i in 1:length(batch_urls)) {
-  counter <- 0
-  temp_vector <- getURIAsynchronous(batch_urls[[i]])
-  temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
-  temp_vector <- temp_vector[!is.na(temp_vector)]
-  if(length(temp_vector) == 0) break
-  output_list[[i]] <- temp_vector
-  }
-second_reffs <- unlist(output_list)
+fit <- lda.collapsed.gibbs.sampler(documents = documents, K = K, vocab = vocab, 
+                                   num.iterations = iterations, alpha = alpha, 
+                                   eta = eta, initial = NULL, burnin = 0,
+                                   compute.log.likelihood = TRUE)
 
-urls <- paste(reffURL, second_reffs, sep = "")
+theta <- t(apply(fit$document_sums + alpha, 2, function(x) x/sum(x)))
+phi <- t(apply(t(fit$topics) + eta, 2, function(x) x/sum(x)))
 
-batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-output_list <- list()
-for (i in 1:length(batch_urls)) {
-  counter <- 0
-  temp_vector <- getURIAsynchronous(batch_urls[[i]])
-  temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
-  temp_vector <- temp_vector[!is.na(temp_vector)]
-  if(length(temp_vector) == 0) break
-  output_list[[i]] <- temp_vector
-}
-third_reffs <- unlist(output_list)
+research_corpusAbstracts <- list(phi = phi,
+                                 theta = theta,
+                                 doc.length = doc.length,
+                                 vocab = vocab,
+                                 term.frequency = term.frequency)
 
-urls <- paste(reffURL, third_reffs, sep = "")
-batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-output_list <- list()
-for (i in 1:length(batch_urls)) {
-  counter <- 0
-  temp_vector <- getURIAsynchronous(batch_urls[[i]])
-  temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
-  temp_vector <- temp_vector[!is.na(temp_vector)]
-  if(length(temp_vector) == 0) break
-  output_list[[i]] <- temp_vector
-}
-fourth_reffs <- unlist(output_list)
+# create the JSON object to feed the visualization:
+json <- createJSON(phi = research_corpusAbstracts$phi, 
+                   theta = research_corpusAbstracts$theta, 
+                   doc.length = research_corpusAbstracts$doc.length, 
+                   vocab = research_corpusAbstracts$vocab, 
+                   term.frequency = research_corpusAbstracts$term.frequency,
+                   R=number_terms)
 
-
-if(length(fourth_reffs) != 0) {
-  reffs <- fourth_reffs
-} else if(length(third_reffs) != 0) {
-  reffs <- third_reffs
-} else if(length(second_reffs) != 0) {
-  reffs <- second_reffs
-} else {
-  reffs <- first_reffs
-} 
-
-#### fetch texts
-
-XMLminer <- function(x){
-  xname <- xmlName(x)
-  xattrs <- xmlAttrs(x)
-  c(sapply(xmlChildren(x), xmlValue), name = xname, xattrs)}
-
-XMLpassage1 <-function(xdata){
-  if (xdata == "NotRetrieved") {return(xdata)
-    } else {result <- xmlParse(xdata)
-    result <- as.data.frame(t(xpathSApply(result, "//*/tei:body", XMLminer)), stringsAsFactors = FALSE)[[1]]
-    result <- gsub("\n", "", result, fixed = FALSE)
-    result <- gsub("\t", "", result, fixed = FALSE)
-    return(result)}}
-
-urls <- paste(baseURL, reffs, sep = "")
-t1 <- Sys.time()
-batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-output_list <- vector("list", length(batch_urls))
-for (i in 1:length(batch_urls)) {
-  temp_vector <- getURL(batch_urls[[i]], async = FALSE)
-
-  temp_vector <- unlist(lapply(temp_vector, XMLpassage1))
-  output_list[[i]] <- temp_vector
-  rm(temp_vector)
-  print(paste("Fetched ", as.character(i), "/", as.character(length(batch_urls)), sep=""))
-}
-corpus <- unlist(output_list)
-t2 <- Sys.time()
-Time_fetchingBatches <- t2 - t1
-Time_fetchingBatches
-
-# corpus <- unlist(lapply(corpus, XMLpassage1))
-corpus.df <- data.frame(reffs, corpus)
-colnames(corpus.df) <- c("identifier", "text")
-write.csv(corpus.df, "corpus.csv", row.names = FALSE)
+#Visulise and start browser
+serVis(json, out.dir = 'www/temp_vis', open.browser = FALSE)

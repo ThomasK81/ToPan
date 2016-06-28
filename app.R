@@ -84,7 +84,18 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                        ),
                                        mainPanel(
                                          dataTableOutput("catalogue4")
-                                       )))),
+                                       ))),
+                            tabPanel("TreeBank XML",
+                                     sidebarLayout(
+                                       sidebarPanel(
+                                         fileInput('file2', 'Choose TreeBank XML File',
+                                                   accept=c('.xml')),
+                                         actionButton("button5", "Submit")
+                                       ),
+                                       mainPanel(
+                                         dataTableOutput("catalogue5")
+                                       )))
+                            ),
                  
                  tabPanel("Morphology Service", 
                           # Sidebar with a slider input for the number of bins
@@ -402,6 +413,49 @@ server <- function(input, output, session) {
       file_name <- paste("./www/", file_name, ".rds", sep = "")
       saveRDS(CSVcatalogue, file_name)
       CSVcatalogue
+    })
+  })
+  
+  output$catalogue5 <- renderDataTable({
+    input$button5
+    
+    inFile <- input$file2
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+    withProgress(message = 'Reading Texts', value = 0, {
+      data <- xmlParse(inFile$datapath)
+      xml_data <- xmlToList(data)
+      xml_data <- xml_data[5:(length(xml_data)-1)]
+      df <- list()
+      counter <- 0
+      for (i in 1:length(xml_data)) {
+        for (j in 1:(length(xml_data[[i]])-1)) {
+          counter <- counter + 1
+          row_number <- counter
+          df[[counter]] <- c(xml_data[[i]][[length(xml_data[[i]])]], xml_data[[i]][[j]])
+        }
+      }
+      df <- df[-which(unlist(lapply(df, length)) == 9)]
+      df <- data.frame(df, stringsAsFactors = FALSE)
+      df <- t(df)
+      
+      identifier <- vector()
+      corpus <- vector()
+      for (i in 1:max(as.integer(df[,1]))) {
+        location <- which(as.integer(df[,1]) == i)
+        corpus[i] <- paste(unname(df[location, 5]), sep = "", collapse = " ")
+        identifier[i] <- paste(unname(df[location, 9])[1], "@", unname(df[location, 5])[1], "-", tail(unlist(strsplit(unname(df[location, 9])[length(unname(df[location, 9]))-1], ":", fixed = TRUE)), n = 1), "@", unname(df[location, 5])[length(unname(df[location, 5]))-1], sep = "")
+      }
+      corpus <- data.frame(as.character(identifier), as.character(corpus))
+      names(corpus) <- c("identifier", "text")
+      withProgress(message = 'Save Binary...', value = 0, {
+        file_name <- unlist(strsplit(as.character(corpus[1,1]), ":", fixed = TRUE))[4]
+        file_name <- paste("./www/", file_name, ".rds", sep = "")
+        saveRDS(corpus, file_name)
+        corpus
+      })
     })
   })
   
