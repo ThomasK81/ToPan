@@ -165,6 +165,8 @@ tabPanel("Morphology Service",
 
 server <- function(input, output, session) {
   
+  options(shiny.maxRequestSize=30*1024^2)
+  
 ##### 2.1. Catalogues #######
 ##### 2.1.1. Output CTS API Corpus #######  
   
@@ -431,12 +433,10 @@ server <- function(input, output, session) {
     
     if (input$CSVgo == 0)
       return()
-    
     inFile <- input$file1
     
     if (is.null(inFile))
       return(NULL)
-    
     withProgress(message = 'Reading Texts', value = 0, {
       CSVcatalogue <- read.csv(inFile$datapath, header = input$header, sep = input$sep, quote = input$quote)
     })
@@ -445,7 +445,6 @@ server <- function(input, output, session) {
       file_name <- paste("./www/", file_name, ".rds", sep = "")
       saveRDS(CSVcatalogue, file_name)
     })
-      
     CSVcatalogue
   })
 ##### 2.1.5. Output Treebank Corpus #######
