@@ -277,12 +277,19 @@ server <- function(input, output, session) {
     t1 <- Sys.time()
     batch_urls <- split(urls, ceiling(seq_along(urls)/100))
     output_list <- vector("list", length(batch_urls))
+    
+    d <- debugGatherer()
+    
     for (i in 1:length(batch_urls)) {
-      temp_vector <- getURI(batch_urls[[i]])
+      temp_vector <- getURI(batch_urls[[i]],
+                            debugfunction = d$update, 
+                            verbose = TRUE)
+      d$value()
       temp_vector <- unlist(lapply(temp_vector, XMLpassage1))
       output_list[[i]] <- temp_vector
       rm(temp_vector)
       incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
+      message(d$value())
     }
     corpus <- unlist(output_list)})
     
