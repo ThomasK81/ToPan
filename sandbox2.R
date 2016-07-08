@@ -9,49 +9,7 @@ reffURL <- "http://cts.perseids.org/api/cts/?request=GetValidReff&urn="
 
 requestURN <- "urn:cts:latinLit:phi1002.phi001.perseus-eng2"
 
-fetch_reffs <- function(x){
-  message("Retrieve Reffs for ", x)
-  URL <- paste(reffURL, x, sep = "")
-  URLcontent <- content(GET(URL), type = "text/xml")
-  xmlfile <- xmlTreeParse(URLcontent)
-  xmltop <- xmlRoot(xmlfile)
-  reffs <- vector()
-  for (i in 1:length(xmltop[[2]][[1]])) {
-    reffs[i] <- xmlValue(xmltop[[2]][[1]][[i]])
-  }
-  return(reffs)
-}
 
-test_reffs <- function(x){
-  message("Retrieve Reffs for ", x)
-  URL <- paste(reffURL, x, sep = "")
-  URLcontent <- content(GET(URL), type = "text/xml")
-  xmlfile <- xmlTreeParse(URLcontent)
-  xmltop <- xmlRoot(xmlfile)
-  if(xmlValue(xmltop[[2]]) == ""){
-    return(FALSE)
-  }
-  if(xmlValue(xmltop[[2]][[1]][[1]]) == "Internal Server Error"){
-    return(FALSE)
-  }
-  return(TRUE)
-}
-
-fetch_passage <- function(x){
-  message("Retrieve Passage for ", x)
-  URL <- paste(baseURL, x, sep = "")
-  URLcontent <- content(GET(URL), type = "text/xml")
-  xmlfile <- xmlTreeParse(URLcontent)
-  xmltop <- xmlRoot(xmlfile)
-  response <- xmltop[[2]]
-  passage <- vector()
-  for (i in 1:length(xmltop[[2]][[1]])) {
-    passage[i] <- xmlValue(response[[2]][[1]])
-  }
-  passage <- gsub("\n", "", passage, fixed = FALSE)
-  passage <- gsub("\t", "", passage, fixed = FALSE)
-  return(passage)
-}
   
 first_reffs <- fetch_reffs(requestURN)
 if (test_reffs(first_reffs[1]) == TRUE) {
@@ -87,3 +45,7 @@ if (length(fourth_reffs) != 0) {
         }
 
 corpus <- unlist(lapply(reffs, fetch_passage))
+
+morpheusURL <- "https://services.perseids.org/bsp/morphologyservice/analysis/word?word="
+
+

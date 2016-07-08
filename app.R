@@ -2,10 +2,11 @@
 
 library(shiny)
 library(RCurl)
-library(XML)
+library(XML) #also install XML2
+library(httr)
 library(lda)
 library(LDAvis)
-  ##### 0.1. Preprocessing of CTS API inventory #######
+##### 0.1. Preprocessing of CTS API inventory #######
 
 xml.url <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
 xmlfile <- xmlTreeParse(xml.url)
@@ -27,10 +28,67 @@ urns <- unique(unlist(output))
 urns <- urns[!is.na(urns)]
 metadata <- data.frame(urns)
 
+##### 0.2 Global Functions #######
+
+fetch_reffs <- function(x){
+  message("Retrieve Reffs for ", x)
+  URL <- paste(reffURL, x, sep = "")
+  URLcontent <- content(GET(URL), type = "text/xml")
+  xmlfile <- xmlTreeParse(URLcontent)
+  xmltop <- xmlRoot(xmlfile)
+  reffs <- vector()
+  for (i in 1:length(xmltop[[2]][[1]])) {
+    reffs[i] <- xmlValue(xmltop[[2]][[1]][[i]])
+  }
+  return(reffs)
+}
+
+test_reffs <- function(x){
+  message("Retrieve Reffs for ", x)
+  URL <- paste(reffURL, x, sep = "")
+  URLcontent <- content(GET(URL), type = "text/xml")
+  xmlfile <- xmlTreeParse(URLcontent)
+  xmltop <- xmlRoot(xmlfile)
+  if(xmlValue(xmltop[[2]]) == ""){
+    return(FALSE)
+  }
+  if(xmlValue(xmltop[[2]][[1]][[1]]) == "Internal Server Error"){
+    return(FALSE)
+  }
+  return(TRUE)
+}
+
+fetch_passage <- function(x){
+  message("Retrieve Passage for ", x)
+  URL <- paste(baseURL, x, sep = "")
+  URLcontent <- content(GET(URL), type = "text/xml")
+  xmlfile <- xmlTreeParse(URLcontent)
+  xmltop <- xmlRoot(xmlfile)
+  response <- xmltop[[2]]
+  passage <- vector()
+  for (i in 1:length(xmltop[[2]][[1]])) {
+    passage[i] <- xmlValue(response[[2]][[1]])
+  }
+  passage <- gsub("\n", "", passage, fixed = FALSE)
+  passage <- gsub("\t", "", passage, fixed = FALSE)
+  return(passage)
+}
+
 ##### 1. User Interface #######
 
 ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height = "25"), "ToPān v.0.1"), windowTitle = "ToPān v.0.1",
-                 tabPanel("Home", mainPanel(includeMarkdown("home.md"))),
+##### 1.0.1. Home #######
+                 tabPanel("Home",
+                          fluidRow(column(4, br(), div(img(src = "melete.png", height = "200"))),
+                                   column(8, includeMarkdown("home.md")))),                 
+                 tabPanel("Instructions",
+                          sidebarLayout(sidebarPanel(br(), h6("Instructions"),
+                                                     actionLink("data_link", "1. Entering the Data"), br(),
+                                                     actionLink("morph_link", "2. Morphological Normalisation"), br(),
+                                                     actionLink("tm_link", "3. Setting the TM Values"), br(),
+                                                     actionLink("results_link", "4. Understanding the Results"), br(), br(),
+                                                     actionLink("copyright_link", "Copyright Note")),
+                                        mainPanel(htmlOutput("markdownfile")))),
 ##### 1.1. DATA INPUT #######                
                  navbarMenu("Data Input",
 ##### 1.1.1. CTS API INPUT #######
@@ -152,13 +210,7 @@ tabPanel("Morphology Service",
                  navbarMenu("LDA Tables", 
                             tabPanel("DocumentTopic (θ)", mainPanel(dataTableOutput("theta"))),
                             tabPanel("TermTopic (φ)", mainPanel(dataTableOutput("phi")))
-                 ),
-##### 1.6. About #######
-
-                 navbarMenu("About", 
-                            tabPanel("About ToPān", mainPanel(includeMarkdown("home.md"))),
-                            tabPanel("About Me", mainPanel(includeMarkdown("home.md")))
-                            )
+                 )
                  )
 
 ##### 2. Server #######
@@ -166,6 +218,34 @@ tabPanel("Morphology Service",
 server <- function(input, output, session) {
   
   options(shiny.maxRequestSize=30*1024^2)
+  
+##### 2.0.1 Home Viz #######
+  
+  values <- reactiveValues(mdfile = "preliminary.md")
+  
+  observeEvent(input$copyright_link, {
+    values$mdfile <- "copyright.md"
+  })
+  
+  observeEvent(input$data_link, {
+    values$mdfile <- "dataentry.md"
+  })
+  
+  observeEvent(input$morph_link, {
+    values$mdfile <- "morphologicalnormalisation.md"
+  })
+  
+  observeEvent(input$tm_link, {
+    values$mdfile <- "settingtmvalues.md"
+  })
+  
+  observeEvent(input$results_link, {
+    values$mdfile <- "understandingresults.md"
+  })
+  
+  output$markdownfile <- renderUI({  
+    includeMarkdown(values$mdfile)
+  })
   
 ##### 2.1. Catalogues #######
 ##### 2.1.1. Output CTS API Corpus #######  
@@ -178,130 +258,49 @@ server <- function(input, output, session) {
     reffURL <- "http://cts.perseids.org/api/cts/?request=GetValidReff&urn="
     requestURN <- input$cts_urn
     
-    fetch_reffs <- function(x){
-      message("Retrieve Reffs for ", x)
-      URL <- paste(reffURL, x, sep = "")
-      URLcontent <- tryCatch({getURLContent(URL)},
-                             error = function(err)
-                             {result <- "NoReturn"
-                             return(result)})
-      reffs <- unlist(strsplit(URLcontent, split="<urn>|</urn>"))
-      reffs <- reffs[2:length(reffs)]
-      reffs <- reffs[seq(1, length(reffs), 2)]
-      return(reffs)
-    }
+    first_reffs <- fetch_reffs(requestURN)
+    if (test_reffs(first_reffs[1]) == TRUE) {
+      second_reffs <- unlist(lapply(first_reffs, fetch_reffs))
+      second_reffs <- unique(second_reffs)
+      if (length(grep("Internal Server Error", second_reffs)) != 0) {
+        second_reffs <- second_reffs[-grep("Internal Server Error", second_reffs)]
+      }
+    } else {second_reffs <- vector()}
+    if (test_reffs(second_reffs[1]) == TRUE) {
+      third_reffs <- unlist(lapply(second_reffs, fetch_reffs))
+      third_reffs <- unique(third_reffs)
+      if (length(grep("Internal Server Error", third_reffs)) != 0) {
+        third_reffs <- third_reffs[-grep("Internal Server Error", third_reffs)]
+      }
+    } else {third_reffs <- vector()}
+    if (test_reffs(third_reffs[1]) == TRUE) {
+      fourth_reffs <- unlist(lapply(third_reffs, fetch_reffs))
+      fourth_reffs <- unique(fourth_reffs)
+      if (length(grep("Internal Server Error", fourth_reffs)) != 0) {
+        fourth_reffs <- fourth_reffs[-grep("Internal Server Error", fourth_reffs)]
+      }
+    } else {fourth_reffs <- vector()}
     
-    parse_reffs <- function(x){
-      reffs <- unlist(strsplit(x, split="<urn>|</urn>"))
-      reffs <- reffs[2:length(reffs)]
-      reffs <- reffs[seq(1, length(reffs), 2)]
-      return(reffs)
-    }
-    
-    withProgress(message = 'First Set of References', value = 0, {
-      first_reffs <- fetch_reffs(requestURN)
-    })
-    
-    withProgress(message = 'Second Set of References', value = 0, {
-      urls <- paste(reffURL, first_reffs, sep = "")
-    
-    batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-    output_list <- list()
-    for (i in 1:length(batch_urls)) {
-      temp_vector <- getURIAsynchronous(batch_urls[[i]])
-      temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
-      temp_vector <- temp_vector[!is.na(temp_vector)]
-      if(length(temp_vector) == 0) break
-      output_list[[i]] <- temp_vector
-      incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
-    }
-    second_reffs <- unlist(output_list)
-    })
-    
-    withProgress(message = 'Third Set of References', value = 0, {
-      urls <- paste(reffURL, second_reffs, sep = "")
-    
-    batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-    output_list <- list()
-    for (i in 1:length(batch_urls)) {
-      temp_vector <- getURIAsynchronous(batch_urls[[i]])
-      temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
-      temp_vector <- temp_vector[!is.na(temp_vector)]
-      if(length(temp_vector) == 0) break
-      output_list[[i]] <- temp_vector
-      incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
-    }
-    third_reffs <- unlist(output_list)})
-    
-    withProgress(message = 'Fourth Set of References', value = 0, {
-      urls <- paste(reffURL, third_reffs, sep = "")
-    batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-    output_list <- list()
-    for (i in 1:length(batch_urls)) {
-      temp_vector <- getURIAsynchronous(batch_urls[[i]])
-      temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
-      temp_vector <- temp_vector[!is.na(temp_vector)]
-      if(length(temp_vector) == 0) break
-      output_list[[i]] <- temp_vector
-      incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
-    }
-    fourth_reffs <- unlist(output_list)})
-    
-    
-    if(length(fourth_reffs) != 0) {
+    if (length(fourth_reffs) != 0) {
       reffs <- fourth_reffs
-    } else if(length(third_reffs) != 0) {
+    } else if (length(third_reffs) != 0) {
       reffs <- third_reffs
-    } else if(length(second_reffs) != 0) {
+    } else if (length(second_reffs) != 0) {
       reffs <- second_reffs
     } else {
       reffs <- first_reffs
-    } 
-    
-    #### fetch texts
-    XMLminer <- function(x){
-      xname <- xmlName(x)
-      xattrs <- xmlAttrs(x)
-      c(sapply(xmlChildren(x), xmlValue), name = xname, xattrs)}
-    
-    XMLpassage1 <-function(xdata){
-      if (xdata == "NotRetrieved") {return(xdata)
-      } else {result <- xmlParse(xdata)
-      result <- as.data.frame(t(xpathSApply(result, "//*/tei:body", XMLminer)), stringsAsFactors = FALSE)[[1]]
-      result <- gsub("\n", "", result, fixed = FALSE)
-      result <- gsub("\t", "", result, fixed = FALSE)
-      return(result)}}
-    
-    withProgress(message = 'Fetch Texts', value = 0, {
-    urls <- paste(baseURL, reffs, sep = "")
-    t1 <- Sys.time()
-    batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-    output_list <- vector("list", length(batch_urls))
-    
-    d <- debugGatherer()
-    
-    for (i in 1:length(batch_urls)) {
-      temp_vector <- getURI(batch_urls[[i]],
-                            debugfunction = d$update, 
-                            verbose = TRUE)
-      d$value()
-      temp_vector <- unlist(lapply(temp_vector, XMLpassage1))
-      output_list[[i]] <- temp_vector
-      rm(temp_vector)
-      incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
-      message(d$value())
     }
-    corpus <- unlist(output_list)})
     
-    # withProgress(message = 'Parse Texts', value = 0, {
-    #  corpus <- unlist(lapply(XMLcorpus, XMLpassage1))
+    corpus <- unlist(lapply(reffs, fetch_passage))
     corpus.df <- data.frame(reffs, corpus)
     colnames(corpus.df) <- c("identifier", "text")
     write.csv(corpus.df, "./www/corpus.csv", row.names = FALSE)
-    # })
-    withProgress(message = 'Reading Texts', value = 0, {
-      read.csv("./www/corpus.csv", header = TRUE, sep = ",", quote = "\"")
+    withProgress(message = 'Save Binary...', value = 0, {
+      file_name <- unlist(strsplit(as.character(corpus.df[1,1]), ":", fixed = TRUE))[4]
+      file_name <- paste("./www/", file_name, ".rds", sep = "")
+      saveRDS(corpus.df, file_name)
     })
+    corpus.df
   })
 ##### 2.1.2. Output Local Capitains API Corpus ####### 
   
@@ -313,125 +312,49 @@ server <- function(input, output, session) {
     reffURL <- paste(input$api_url, "GetValidReff&urn=", sep = "")
     requestURN <- input$api_cts_urn
     
-    fetch_reffs <- function(x){
-      message("Retrieve Reffs for ", x)
-      URL <- paste(reffURL, x, sep = "")
-      URLcontent <- tryCatch({getURLContent(URL)},
-                             error = function(err)
-                             {result <- "NoReturn"
-                             return(result)})
-      reffs <- unlist(strsplit(URLcontent, split="<urn>|</urn>"))
-      reffs <- reffs[2:length(reffs)]
-      reffs <- reffs[seq(1, length(reffs), 2)]
-      return(reffs)
-    }
-    
-    parse_reffs <- function(x){
-      reffs <- unlist(strsplit(x, split="<urn>|</urn>"))
-      reffs <- reffs[2:length(reffs)]
-      reffs <- reffs[seq(1, length(reffs), 2)]
-      return(reffs)
-    }
-    
-    withProgress(message = 'First Set of References', value = 0, {
-      first_reffs <- fetch_reffs(requestURN)
-    })
-    
-    withProgress(message = 'Second Set of References', value = 0, {
-      urls <- paste(reffURL, first_reffs, sep = "")
-      
-      batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-      output_list <- list()
-      for (i in 1:length(batch_urls)) {
-        temp_vector <- getURIAsynchronous(batch_urls[[i]])
-        temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
-        temp_vector <- temp_vector[!is.na(temp_vector)]
-        if(length(temp_vector) == 0) break
-        output_list[[i]] <- temp_vector
-        incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
+    first_reffs <- fetch_reffs(requestURN)
+    if (test_reffs(first_reffs[1]) == TRUE) {
+      second_reffs <- unlist(lapply(first_reffs, fetch_reffs))
+      second_reffs <- unique(second_reffs)
+      if (length(grep("Internal Server Error", second_reffs)) != 0) {
+        second_reffs <- second_reffs[-grep("Internal Server Error", second_reffs)]
       }
-      second_reffs <- unlist(output_list)
-    })
-    
-    withProgress(message = 'Third Set of References', value = 0, {
-      urls <- paste(reffURL, second_reffs, sep = "")
-      
-      batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-      output_list <- list()
-      for (i in 1:length(batch_urls)) {
-        temp_vector <- getURIAsynchronous(batch_urls[[i]])
-        temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
-        temp_vector <- temp_vector[!is.na(temp_vector)]
-        if(length(temp_vector) == 0) break
-        output_list[[i]] <- temp_vector
-        incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
+    } else {second_reffs <- vector()}
+    if (test_reffs(second_reffs[1]) == TRUE) {
+      third_reffs <- unlist(lapply(second_reffs, fetch_reffs))
+      third_reffs <- unique(third_reffs)
+      if (length(grep("Internal Server Error", third_reffs)) != 0) {
+        third_reffs <- third_reffs[-grep("Internal Server Error", third_reffs)]
       }
-      third_reffs <- unlist(output_list)})
-    
-    withProgress(message = 'Fourth Set of References', value = 0, {
-      urls <- paste(reffURL, third_reffs, sep = "")
-      batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-      output_list <- list()
-      for (i in 1:length(batch_urls)) {
-        temp_vector <- getURIAsynchronous(batch_urls[[i]])
-        temp_vector <- unname(unlist(sapply(temp_vector, parse_reffs)))
-        temp_vector <- temp_vector[!is.na(temp_vector)]
-        if(length(temp_vector) == 0) break
-        output_list[[i]] <- temp_vector
-        incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
+    } else {third_reffs <- vector()}
+    if (test_reffs(third_reffs[1]) == TRUE) {
+      fourth_reffs <- unlist(lapply(third_reffs, fetch_reffs))
+      fourth_reffs <- unique(fourth_reffs)
+      if (length(grep("Internal Server Error", fourth_reffs)) != 0) {
+        fourth_reffs <- fourth_reffs[-grep("Internal Server Error", fourth_reffs)]
       }
-      fourth_reffs <- unlist(output_list)})
+    } else {fourth_reffs <- vector()}
     
-    
-    if(length(fourth_reffs) != 0) {
+    if (length(fourth_reffs) != 0) {
       reffs <- fourth_reffs
-    } else if(length(third_reffs) != 0) {
+    } else if (length(third_reffs) != 0) {
       reffs <- third_reffs
-    } else if(length(second_reffs) != 0) {
+    } else if (length(second_reffs) != 0) {
       reffs <- second_reffs
     } else {
       reffs <- first_reffs
-    } 
+    }
     
-    #### fetch texts
-    XMLminer <- function(x){
-      xname <- xmlName(x)
-      xattrs <- xmlAttrs(x)
-      c(sapply(xmlChildren(x), xmlValue), name = xname, xattrs)}
-    
-    XMLpassage1 <-function(xdata){
-      if (xdata == "NotRetrieved") {return(xdata)
-      } else {result <- xmlParse(xdata)
-      result <- as.data.frame(t(xpathSApply(result, "//*/tei:body", XMLminer)), stringsAsFactors = FALSE)[[1]]
-      result <- gsub("\n", "", result, fixed = FALSE)
-      result <- gsub("\t", "", result, fixed = FALSE)
-      return(result)}}
-    
-    withProgress(message = 'Fetch Texts', value = 0, {
-      urls <- paste(baseURL, reffs, sep = "")
-      t1 <- Sys.time()
-      batch_urls <- split(urls, ceiling(seq_along(urls)/100))
-      output_list <- vector("list", length(batch_urls))
-      for (i in 1:length(batch_urls)) {
-        temp_vector <- getURI(batch_urls[[i]])
-        temp_vector <- unlist(lapply(temp_vector, XMLpassage1))
-        output_list[[i]] <- temp_vector
-        rm(temp_vector)
-        incProgress(1/length(batch_urls), detail = paste("Fetched Batch", i))
-      }
-      corpus <- unlist(output_list)})
-    
-    
-    
-    # withProgress(message = 'Parse Texts', value = 0, {
-    #  corpus <- unlist(lapply(XMLcorpus, XMLpassage1))
+    corpus <- unlist(lapply(reffs, fetch_passage))
     corpus.df <- data.frame(reffs, corpus)
     colnames(corpus.df) <- c("identifier", "text")
     write.csv(corpus.df, "./www/corpus.csv", row.names = FALSE)
-    # })
-    withProgress(message = 'Reading Texts', value = 0, {
-      read.csv("./www/corpus.csv", header = TRUE, sep = ",", quote = "\"")
+    withProgress(message = 'Save Binary...', value = 0, {
+      file_name <- unlist(strsplit(as.character(corpus.df[1,1]), ":", fixed = TRUE))[4]
+      file_name <- paste("./www/", file_name, ".rds", sep = "")
+      saveRDS(corpus.df, file_name)
     })
+    corpus.df
   })
 ##### 2.1.3. Output DNZ API Corpus #######
 ##### 2.1.4. Output CSV Corpus #######
@@ -447,6 +370,7 @@ server <- function(input, output, session) {
     withProgress(message = 'Reading Texts', value = 0, {
       CSVcatalogue <- read.csv(inFile$datapath, header = input$header, sep = input$sep, quote = input$quote)
     })
+    colnames(CSVcatalogue) <- c('identifier', 'text')
     withProgress(message = 'Save Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue[1,1]), ":", fixed = TRUE))[4]
       file_name <- paste("./www/", file_name, ".rds", sep = "")
@@ -558,34 +482,7 @@ server <- function(input, output, session) {
       xname <- xmlName(x)
       xattrs <- xmlAttrs(x)
       c(sapply(xmlChildren(x), xmlValue), name = xname, xattrs)}
-    
-#    parse_words <- function(x){
-#      URLcontent <- x
-#      if (URLcontent == "ServerError") {
-#        lemma <- "NotFound"
-#        return(lemma)}
-#      else {
-#        lemma <- if (is.null(XMLpassage2(URLcontent)) == TRUE) {
-#         lemma <- "NotFound"
-#          return(lemma)}
-#        else {lemma <- tryCatch({XMLpassage2(URLcontent)},
-#                                error = function(err) {
-#                                  lemma <- "NotFound"
-#                                  return(lemma)})
-#        
-#        lemma <- gsub("[0-9]", "", lemma)
-#        lemma <- tolower(lemma)
-#        lemma <- unique(lemma)
-#        lemma <- paste(lemma, sep = "", collapse = ",")
-#        if (nchar(lemma) == 0) {
-#          lemma <- x
-#          return(lemma)}
-#        else {
-#          return(lemma)
-#        }
-#        } #     }
-#    }
-    
+ 
     parsing <- function(x){
         word_form <- x
         withProgress(message = paste('Parse ', word_form, ": ", round((match(word_form, corpus_words)-1)/length(corpus_words)*100, digits=2), '%'), value = 0, {
