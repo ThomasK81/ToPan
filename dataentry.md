@@ -1,6 +1,6 @@
 #### 1. Data Entry
 
-In ToPān you have different methods to read in data. Although you will need an internet connection to pull-in all references to available texts at the Perseids Project's repository and for the DNZ API query, the speediest text inputs are local methods: either you install CAPITainS, or you prepare a CSV / TSV text file that contains at least two columns mapping identifiers to logical chunks of text of your corpus (currently ToPan works best with the CTS architecture), or third. A fourth accepted local file format is the new (and experimental) <a href="http://neelsmith.github.io/2016/07/11/textformats/" target="_blank">OHCO2 Exchange Format (.82XF)</a>.
+In ToPān you have different methods to read in data. Although you will need an internet connection to pull-in all references to available texts at the Perseids Project's repository and for the DNZ API query, the speediest text inputs are local methods: either you install CAPITainS, or you prepare a CSV / TSV text file that contains at least two columns mapping identifiers to logical chunks of text of your corpus (currently ToPan works best with the CTS architecture), or third. A fourth accepted local file format is the new (and experimental) <a href="http://neelsmith.github.io/2016/07/13/82xf_v2/" target="_blank">OHCO2 Exchange Format (.82XF)</a>.
 
 ##### CTS API Based Data Input
 
@@ -42,7 +42,7 @@ A very handy way to upload data are TreeBank XML files (ideally produced with Ar
 
 ##### OHCO2 Exchange Format
 
-Neel Smith and I came up with a proposal about what we think to be the simplest way to share OHCO2 compliant texts with each other. Find here some more information about the <a href="http://neelsmith.github.io/2016/07/11/textformats/" target="_blank">OHCO2 Exchange Format (.82XF)</a>. 
+Neel Smith and I came up with a proposal about what we think to be the simplest way to share OHCO2 compliant texts with each other. Find here some more information about the <a href="http://neelsmith.github.io/2016/07/13/82xf_v2/" target="_blank">OHCO2 Exchange Format (.82XF)</a>. 
 82XF is basically just a table consisting of 5-columns: 1. Identfier, 2. PrevIndex, 3. Index, 4. NextIndex, 5. Text. While you can choose whatever format you want to express this .82XF is text table with no header with the delimiter being a "#". Currently ToPān only understands "plain" text in 5, but it will be an additional feature that ToPān will also be able to handle Markdown and XML.
 
 ![Image of CSV Data Input](/ScreenShots_ToPan/82XFDataInput.png)
