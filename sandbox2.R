@@ -48,4 +48,46 @@ corpus <- unlist(lapply(reffs, fetch_passage))
 
 morpheusURL <- "https://services.perseids.org/bsp/morphologyservice/analysis/word?word="
 
+#### testing
+
+corpus <- readRDS("./www/phi0972.phi001.rds")
+research_corpus <- corpus[,2]
+research_corpus <- as.character(research_corpus)
+
+file_name <- "StemDic.rds"
+file_name <- paste("./www/", file_name, sep = "")
+stem_dictionary <- readRDS(file_name)
+
+lemmatiser <- function(x){
+  lemmatised <- stem_dictionary[[x]]
+  return(lemmatised)}
+
+choose_lemma <- function(x){
+  lemma <- names(which(NumberOccurrences[x]==max(NumberOccurrences[x])))
+  if (length(lemma)==1) {return(lemma)
+  }
+  else {return (x[1])}
+}
+temp <- strsplit(research_corpus, " ")
+temp_correct <- list()
+for (i in 1:length(temp)) {
+  temp_correct[[i]] <- sapply(temp[[i]], lemmatiser) 
+}
+
+NumberOccurrences <- table(unlist(temp_correct))
+corrected_corpus <- list()
+for (n in 1:length(temp_correct)) {
+  temp_corrected <- list()
+  counter <- n
+  for (i in 1:length(temp_correct[[counter]])) {
+    if (is.null(temp_correct[[counter]][[i]])) {
+      temp_corrected[[i]] <- names(temp_correct[[counter]][i])
+    } else {
+      temp_corrected[[i]] <- choose_lemma(temp_correct[[counter]][[i]]) 
+    }  
+  }  
+  corrected_corpus[[n]] <- temp_corrected
+}
+
+
 

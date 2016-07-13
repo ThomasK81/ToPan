@@ -8,25 +8,26 @@ library(lda)
 library(LDAvis)
 ##### 0.1. Preprocessing of CTS API inventory #######
 
-xml.url <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
-xmlfile <- xmlTreeParse(xml.url)
-xmltop <- xmlRoot(xmlfile)
-xmltop <- xmltop[[2]]
-xmltop <- xmltop[[1]]
+# xml.url <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
+# xmlfile <- xmlTreeParse(xml.url)
+# xmltop <- xmlRoot(xmlfile)
+# xmltop <- xmltop[[2]]
+# xmltop <- xmltop[[1]]
 
-output <- list()
-counter <- 0
-for (i in 1:length(xmltop)) {
-  for (j in 1:length(xmltop[[i]])) {
-    for (x in 1:length(xmltop[[i]][[j]])) {
-      counter <- counter + 1
-      output[[counter]] <- xmlAttrs(xmltop[[i]][[j]][[x]])["urn"]
-    }
-  }
-}
-urns <- unique(unlist(output))
-urns <- urns[!is.na(urns)]
-metadata <- data.frame(urns)
+# output <- list()
+# counter <- 0
+# for (i in 1:length(xmltop)) {
+#   for (j in 1:length(xmltop[[i]])) {
+#    for (x in 1:length(xmltop[[i]][[j]])) {
+#      counter <- counter + 1
+#      output[[counter]] <- xmlAttrs(xmltop[[i]][[j]][[x]])["urn"]
+#    }
+#  }
+# }
+# urns <- unique(unlist(output))
+# urns <- urns[!is.na(urns)]
+# metadata <- data.frame(urns)
+urns <- vector()
 
 ##### 0.2 Global Functions #######
 
@@ -162,7 +163,20 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                        ),
                                        mainPanel(
                                          dataTableOutput("catalogue5")
-                                       )))
+                                       ))),
+##### 1.1.6. CSV INPUT #######
+tabPanel("82XF",
+         sidebarLayout(
+           sidebarPanel(
+             fileInput('file3', 'Choose 82XF File',
+                       accept=c('text/csv', 
+                                'text/comma-separated-values,text/plain', 
+                                '.82XF')),
+             actionButton("XFgo", "Submit")
+           ),
+           mainPanel(
+             dataTableOutput("catalogue6")
+           )))
                             ),
 ##### 1.2. Morphology Service Input #######
                  
@@ -210,7 +224,20 @@ tabPanel("Morphology Service",
                  navbarMenu("LDA Tables", 
                             tabPanel("DocumentTopic (θ)", mainPanel(dataTableOutput("theta"))),
                             tabPanel("TermTopic (φ)", mainPanel(dataTableOutput("phi")))
-                 )
+                 ),
+
+##### 1.6. Downloads #######
+
+navbarMenu("Downloads",
+           tabPanel("Corpus",
+                    sidebarLayout(
+                      sidebarPanel(
+                        "INPUT SELECTION",
+                        selectInput("download_corpus", label = "Corpus", choices = dir("./www/")[grep(".rds", dir("./www/"))]),
+                        actionButton("CorpusDownloadGo", "Download")
+                        ),
+                      mainPanel(dataTableOutput("download_corpus"))))
+)
                  )
 
 ##### 2. Server #######
@@ -429,6 +456,30 @@ server <- function(input, output, session) {
       })
     })
   })
+
+##### 2.1.6. Output 82XF Corpus #######
+  
+  output$catalogue6 <- renderDataTable({
+    
+    if (input$XFgo == 0)
+      return()
+    inFile <- input$file3
+    
+    if (is.null(inFile))
+      return(NULL)
+    withProgress(message = 'Reading Texts', value = 0, {
+      CSVcatalogue <- read.csv(inFile$datapath, header = TRUE, sep = "#", quote = "")
+    })
+    CSVcatalogue <- data.frame(CSVcatalogue[,1], CSVcatalogue[,5])
+    colnames(CSVcatalogue) <- c('identifier', 'text')
+    withProgress(message = 'Save Binary...', value = 0, {
+      file_name <- unlist(strsplit(as.character(CSVcatalogue[1,1]), ":", fixed = TRUE))[4]
+      file_name <- paste("./www/", file_name, ".rds", sep = "")
+      saveRDS(CSVcatalogue, file_name)
+    })
+    CSVcatalogue
+  })
+  
 ##### 2.2. Processing Morphology #######
   output$MorphUI <- renderUI({
     if (input$morph_method == "Morpheus API")
@@ -463,7 +514,70 @@ server <- function(input, output, session) {
     stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
     colnames(stem_dictionary_CSV) <- c("form", "lemmata")
     write.csv(stem_dictionary_CSV, file = "./www/stemdic.csv")
-    return(stem_dictionary_CSV)
+    
+    ## Read in corpus
+    
+    file_name <- input$morph_corpus
+    file_name <- paste("./www/", file_name, sep = "")
+    
+    withProgress(message = 'Reading Texts', value = 0, {
+      corpus <- readRDS(file_name)
+    })
+
+    research_corpus <- corpus[,2]
+    research_corpus <- as.character(research_corpus)
+    identifier <- corpus[,1]
+    identifier <- as.character(identifier)
+    
+    ### Normalise Corpus
+    
+    lemmatiser <- function(x){
+      lemmatised <- stem_dictionary[[x]]
+      return(lemmatised)}
+    
+    choose_lemma <- function(x){
+      if (is.null(x))
+        return(x)
+      lemma <- names(which(NumberOccurrences[x]==max(NumberOccurrences[x])))
+      if (length(lemma)==1) {return(lemma)
+      }
+      else {return (x[1])}
+    }
+    temp <- strsplit(research_corpus, " ")
+    temp_correct <- list()
+    for (i in 1:length(temp)) {
+      temp_correct[[i]] <- sapply(temp[[i]], lemmatiser) 
+    }
+    NumberOccurrences <- table(unlist(temp_correct))
+    
+    corrected_corpus <- list()
+    for (n in 1:length(temp_correct)) {
+      temp_corrected <- list()
+      counter <- n
+      for (i in 1:length(temp_correct[[counter]])) {
+        if (is.null(temp_correct[[counter]][[i]])) {
+          temp_corrected[[i]] <- names(temp_correct[[counter]][i])
+        } else {
+          temp_corrected[[i]] <- choose_lemma(temp_correct[[counter]][[i]]) 
+        }  
+      }  
+      corrected_corpus[[n]] <- temp_corrected
+    }
+    
+    for (i in 1:length(corrected_corpus)) {
+      corrected_corpus[[i]] <- paste(unlist(corrected_corpus[[i]]), collapse=" ")
+    }
+    research_corpus <- unlist(corrected_corpus)
+    corrected_corpus_df <- data.frame(identifier, research_corpus)
+    colnames(corrected_corpus_df) <- c('identifier', 'text')
+    
+    withProgress(message = 'Save Binary...', value = 0, {
+      file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
+      file_name <- paste("./www/", file_name, "Parsed", ".rds", sep = "")
+      saveRDS(corrected_corpus_df, file_name)
+    })
+    
+    return(corrected_corpus_df)
   })
   
   morpheus <- reactive({
@@ -775,8 +889,44 @@ server <- function(input, output, session) {
       read.csv("./www/temp_tab/phi.csv", header = TRUE, sep = ",", quote = "\"")
     })
   })
-  
+##### 2.6. Downloads #####
+##### 2.6.1. Corpus #####
+  output$download_corpus <- renderDataTable({
+    if (input$CorpusDownloadGo == 0)
+      return()
+    file_name <- input$download_corpus
+    file_name <- paste("./www/", file_name, sep = "")
+    withProgress(message = 'Reading Texts', value = 0, {
+      research_corpus <- readRDS(file_name)
+    })
+    identifier <- as.character(research_corpus[,1])
+    passage <- as.character(research_corpus[,2])
+    index <- c(1:length(identifier))
+    download_corpus <- data.frame(identifier, passage, index)
+    PrevUrn <- vector()
+    NextUrn <- vector()
+    for (i in 1:length(index)) {
+      if(i-1 == 0) {
+        PrevUrn[i] <- "NULL"
+      } else {
+        PrevUrn[i] <- identifier[which(index == i-1)]}
+      if(i+1 > length(identifier)) {
+        NextUrn[i] <- "NULL"
+      } else {
+        NextUrn[i] <- identifier[which(index == i+1)]}
+    }
+    
+    download_corpus <- data.frame(identifier, PrevUrn, index, NextUrn, passage)
+    colnames(download_corpus) <- c("Urn", "PrevUrn", "SequenceIndex", "NextUrn", "TextContent")
+    file_name <- unlist(strsplit(file_name, "/", fixed = TRUE))[3]
+    file_name <- unlist(strsplit(file_name, ".", fixed = TRUE))[c(1,2)]
+    file_name <- paste(file_name, sep = "", collapse = ".")
+    file_name <- paste("./www/", file_name, ".82xf", sep = "")
+    write.table(download_corpus, file_name, quote = FALSE, sep = "#", row.names = FALSE)
+    download_corpus
+  })
 }
+
 
 ##### 3. Start It Up #######
 

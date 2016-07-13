@@ -4,4 +4,4 @@ ToPān is made to be shared and used. That is why I tried to modularise ToPān i
 
 *NB: If you want to ingest your own data in any steps after "Data Input", currently you would have to prepare it as a binarised R Dataframe containing at least a column "identifier" and a column "text".* 
 
-*NB2: Currently ToPān has a download function for .82X-files which is an exchange format for OHCO2 compliant texts. However, it will save CSV-files and R-binaries for each corpus in "./ToPan/www/".*
+*NB2: Currently ToPān has a download function for .82XF-files which is an exchange format for OHCO2 compliant texts. However, it will save CSV-files and R-binaries for each corpus in "./ToPan/www/".*
