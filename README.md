@@ -11,9 +11,10 @@ ToPān is also still under active development. This is an alpha release. More fe
 ##### Trying it (running it from the GitHub Repo)
 
 1. Install [R](https://www.r-project.org) and optionally [RStudio](https://www.rstudio.com) 
-2. In RStudio/R install some packages you will need: `install.packages("shiny")`, `install.packages("LDAvis")`, `install.packages("XML")`, `install.packages("XML2")` `install.packages("RCurl")`, `install.packages("httr")`, `install.packages("LDA")` 
-3. `runUrl("https://github.com/ThomasK81/ToPan/archive/master.zip")`
-4. Enjoy!
+2. In RStudio/R install some packages you will need: `install.packages("shiny")`, `install.packages("LDAvis")`, `install.packages("XML")`, `install.packages("xml2")` `install.packages("RCurl")`, `install.packages("httr")`, `install.packages("lda")` 
+3. `library(shiny)`
+4. `runUrl("https://github.com/ThomasK81/ToPan/archive/master.zip")`
+5. Enjoy!
 
 
 ##### Installing it
@@ -21,6 +22,7 @@ ToPān is also still under active development. This is an alpha release. More fe
 You need to install R and the libraries mentioned under "Trying it". I also recommend to install RStudio. Then just clone the repository, modify it as you like and run it as an RShiny app.
 
 1. Install [R](https://www.r-project.org) and optionally [RStudio](https://www.rstudio.com) 
-2. In RStudio/R install some packages you will need: `install.packages("shiny")`, `install.packages("LDAvis")`, `install.packages("XML")`, `install.packages("XML2")` `install.packages("RCurl")`, `install.packages("httr")`, `install.packages("LDA")` 
-3. `runApp('GithubProjects/ToPan')` ("GithubProjects" or whatever folder you have cloned it to)
-4. Enjoy!
+2. In RStudio/R install some packages you will need: `install.packages("shiny")`, `install.packages("LDAvis")`, `install.packages("XML")`, `install.packages("xml2")` `install.packages("RCurl")`, `install.packages("httr")`, `install.packages("lda")` 
+3. `library(shiny)`
+4. `runApp('GithubProjects/ToPan')` ("GithubProjects" or whatever folder you have cloned it to)
+5. Enjoy!
