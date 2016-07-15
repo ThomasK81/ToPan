@@ -6,7 +6,7 @@ ToPān is topic modelling for everyone: from people without programming knowledg
 
 ToPān is still under active development: this is an alpha release. More features will be added and you are encouraged to roadtest the app. Please send me feedback or report bugs.
 
-*Technical Note: ToPān is written in RShiny and uses the following R-libraries: shiny, RCurl (also I mainly switched to httr, because of RCurl's mysterious errors and performance issues when sending lots and lots of requests), XML (but also install XML2), httr (and curl), lda, LDAvis. If you want to install a local version of ToPān, simply clone the  <a href="https://github.com/ThomasK81/ToPan" target="_blank">repo</a>, install R, RStudio, and the mentioned libraries.*
+*Technical Note: ToPān is written in RShiny and uses the following R-libraries: shiny, RCurl (also I mainly switched to httr, because of RCurl's mysterious errors and performance issues when sending lots and lots of requests), XML (but also install xml2), httr (and curl), lda, LDAvis. If you want to install a local version of ToPān, simply clone the  <a href="https://github.com/ThomasK81/ToPan" target="_blank">repo</a>, install R, RStudio, and the mentioned libraries.*
 
 ##### About Me
 
