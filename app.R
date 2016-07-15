@@ -8,26 +8,25 @@ library(lda)
 library(LDAvis)
 ##### 0.1. Preprocessing of CTS API inventory #######
 
-# xml.url <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
-# xmlfile <- xmlTreeParse(xml.url)
-# xmltop <- xmlRoot(xmlfile)
-# xmltop <- xmltop[[2]]
-# xmltop <- xmltop[[1]]
+xml.url <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
+xmlfile <- xmlTreeParse(xml.url)
+xmltop <- xmlRoot(xmlfile)
+xmltop <- xmltop[[2]]
+xmltop <- xmltop[[1]]
 
-# output <- list()
-# counter <- 0
-# for (i in 1:length(xmltop)) {
-#   for (j in 1:length(xmltop[[i]])) {
-#    for (x in 1:length(xmltop[[i]][[j]])) {
-#      counter <- counter + 1
-#      output[[counter]] <- xmlAttrs(xmltop[[i]][[j]][[x]])["urn"]
-#    }
-#  }
-# }
-# urns <- unique(unlist(output))
-# urns <- urns[!is.na(urns)]
-# metadata <- data.frame(urns)
-urns <- vector()
+output <- list()
+counter <- 0
+for (i in 1:length(xmltop)) {
+   for (j in 1:length(xmltop[[i]])) {
+    for (x in 1:length(xmltop[[i]][[j]])) {
+      counter <- counter + 1
+      output[[counter]] <- xmlAttrs(xmltop[[i]][[j]][[x]])["urn"]
+    }
+  }
+ }
+urns <- unique(unlist(output))
+urns <- urns[!is.na(urns)]
+metadata <- data.frame(urns)
 
 ##### 0.2 Global Functions #######
 
