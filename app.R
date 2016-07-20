@@ -647,6 +647,8 @@ server <- function(input, output, session) {
     })
     research_corpus <- corpus[,2]
     research_corpus <- factor(research_corpus)
+    identifier <- corpus[,1]
+    identifier <- factor(identifier)
     
     ### pre-processing:
     
@@ -686,27 +688,56 @@ server <- function(input, output, session) {
     stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
     colnames(stem_dictionary_CSV) <- c("form", "lemmata")
     write.csv(stem_dictionary_CSV, file = "./www/stemdic.csv")
-    return(stem_dictionary_CSV)
-    return(stem_dictionary)
-    # data.frame(stem_dictionary)
-    # withProgress(message = paste('Produce Morphology URLs (', as.character(length(corpus_words)), ')', sep = " "), value = 0, {
-    #  urls <- paste(morpheusURL, corpus_words, "&lang=lat&engine=morpheuslat", sep = "")
-    #  batch_urls <- split(urls, ceiling(seq_along(urls)/1000))})
-    # withProgress(message = paste('Produce StemDictionary (', as.character(length(corpus_words)), ')', sep = " "), value = 0, {
-    #  output_list <- list()
-    #  for (i in 1:length(batch_urls)) {
-    #    t1 <- Sys.time()
-    #    temp_vector <- getURI(batch_urls[[i]])
-    #    temp_vector <- unname(unlist(sapply(temp_vector, parse_words)))
-    #    output_list[[i]] <- temp_vector
-    #    t2 <- Sys.time()
-    #    time_needed <- t2 - t1
-    #    incProgress(1/length(batch_urls), detail = paste("Fetched Batch ", i, " of ", length(batch_urls), ". Time needed: ", time_needed))
-    #  }
-     # lemmata <- unlist(output_list)
-    #})
     
-    # return(data.frame(corpus_words, urls, lemmata))
+    ### Normalise Corpus
+    
+    lemmatiser <- function(x){
+      lemmatised <- stem_dictionary[[x]]
+      return(lemmatised)}
+    
+    choose_lemma <- function(x){
+      if (is.null(x))
+        return(x)
+      lemma <- names(which(NumberOccurrences[x]==max(NumberOccurrences[x])))
+      if (length(lemma)==1) {return(lemma)
+      }
+      else {return (x[1])}
+    }
+    temp <- strsplit(research_corpus, " ")
+    temp_correct <- list()
+    for (i in 1:length(temp)) {
+      temp_correct[[i]] <- sapply(temp[[i]], lemmatiser) 
+    }
+    NumberOccurrences <- table(unlist(temp_correct))
+    
+    corrected_corpus <- list()
+    for (n in 1:length(temp_correct)) {
+      temp_corrected <- list()
+      counter <- n
+      for (i in 1:length(temp_correct[[counter]])) {
+        if (is.null(temp_correct[[counter]][[i]])) {
+          temp_corrected[[i]] <- names(temp_correct[[counter]][i])
+        } else {
+          temp_corrected[[i]] <- choose_lemma(temp_correct[[counter]][[i]]) 
+        }  
+      }  
+      corrected_corpus[[n]] <- temp_corrected
+    }
+    
+    for (i in 1:length(corrected_corpus)) {
+      corrected_corpus[[i]] <- paste(unlist(corrected_corpus[[i]]), collapse=" ")
+    }
+    research_corpus <- unlist(corrected_corpus)
+    corrected_corpus_df <- data.frame(identifier, research_corpus)
+    colnames(corrected_corpus_df) <- c('identifier', 'text')
+    
+    withProgress(message = 'Save Binary...', value = 0, {
+      file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
+      file_name <- paste("./www/", file_name, "Parsed", ".rds", sep = "")
+      saveRDS(corrected_corpus_df, file_name)
+    })
+    
+    return(corrected_corpus_df)
   })
   
   output$MorpCorpus <- renderDataTable({ # Print the result to the main panel
