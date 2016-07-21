@@ -481,8 +481,9 @@ server <- function(input, output, session) {
   
 ##### 2.2. Processing Morphology #######
   output$MorphUI <- renderUI({
-    if (input$morph_method == "Morpheus API")
-      return()
+    if (input$morph_method == "Morpheus API") {
+      return(selectInput("morphlang", label = "Choose Languages", choices = c("Latin", "Greek", "Arabic"))) 
+    }
     selectInput("stemdic", label = "Choose StemDictionary", choices = dir("./www/")[grep(".rds", dir("./www/"))])
     })
   
@@ -582,6 +583,13 @@ server <- function(input, output, session) {
   morpheus <- reactive({
     
     morpheusURL <- "https://services.perseids.org/bsp/morphologyservice/analysis/word?word="
+    if (input$morphlang == "Latin") {
+      langurl <- "&lang=lat&engine=morpheuslat"
+    } else if (input$morphlang == "Greek") {
+      langurl <- "&lang=grc&engine=morpheusgrc"
+    } else if (input$morphlang == "Arabic") {
+      langurl <- "&lang=ara&engine=aramorph"
+    }
     
     file_name <- input$morph_corpus
     file_name <- paste("./www/", file_name, sep = "")
@@ -599,7 +607,7 @@ server <- function(input, output, session) {
     parsing <- function(x){
         word_form <- x
         withProgress(message = paste('Parse ', word_form, ": ", round((match(word_form, corpus_words)-1)/length(corpus_words)*100, digits=2), '%'), value = 0, {
-      URL <- paste(morpheusURL, word_form, "&lang=lat&engine=morpheuslat", sep = "")
+      URL <- paste(morpheusURL, word_form, langurl, sep = "")
 
       URLcontent <- tryCatch({
         getURLContent(URL)}, 
