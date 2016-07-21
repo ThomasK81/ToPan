@@ -182,7 +182,8 @@ tabPanel("82XF",
 tabPanel("Morphology Service",
          sidebarLayout(
            sidebarPanel(
-             selectInput("morph_corpus", label = "Corpus selection", choices = dir("./www/")[grep(".rds", dir("./www/"))]),
+             fileInput('morph_corpus', 'Corpus selection',
+                       accept=c('.rds')),
              radioButtons("morph_method", label = "Method", choices = c("Morpheus API", "Local StemDictionary")),
              uiOutput("MorphUI"),
              actionButton("Morphgo", "Submit")
@@ -196,7 +197,7 @@ tabPanel("Morphology Service",
                           sidebarLayout(
                             sidebarPanel(
                               "INPUT SELECTION",
-                              selectInput("tm_corpus", label = "TM Corpus", choices = dir("./www/")[grep(".rds", dir("./www/"))]),
+                              fileInput('tm_corpus', 'TM Corpus', accept=c('.rds')),
                               "STOPWORD SETTINGS",
                               sliderInput("occurrence", label = "Occurrence threshold", min = 1, max = 5, value = 3),
                               sliderInput("stopnumber", label = "Number of Stopwords", min = 0, max = 400, value = 200),
@@ -323,7 +324,10 @@ server <- function(input, output, session) {
     write.csv(corpus.df, "./www/corpus.csv", row.names = FALSE)
     withProgress(message = 'Save Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corpus.df[1,1]), ":", fixed = TRUE))[4]
-      file_name <- paste("./www/", file_name, ".rds", sep = "")
+      foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+      foldername <- paste("./www/data", foldername, sep = "/")
+      dir.create(foldername, recursive = TRUE)
+      file_name <- paste(foldername, "/", file_name, ".rds", sep = "")
       saveRDS(corpus.df, file_name)
     })
     corpus.df
@@ -377,7 +381,10 @@ server <- function(input, output, session) {
     write.csv(corpus.df, "./www/corpus.csv", row.names = FALSE)
     withProgress(message = 'Save Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corpus.df[1,1]), ":", fixed = TRUE))[4]
-      file_name <- paste("./www/", file_name, ".rds", sep = "")
+      foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+      foldername <- paste("./www/data", foldername, sep = "/")
+      dir.create(foldername, recursive = TRUE)
+      file_name <- paste(foldername, "/", file_name, ".rds", sep = "")
       saveRDS(corpus.df, file_name)
     })
     corpus.df
@@ -399,7 +406,10 @@ server <- function(input, output, session) {
     colnames(CSVcatalogue) <- c('identifier', 'text')
     withProgress(message = 'Save Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue[1,1]), ":", fixed = TRUE))[4]
-      file_name <- paste("./www/", file_name, ".rds", sep = "")
+      foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+      foldername <- paste("./www/data", foldername, sep = "/")
+      dir.create(foldername, recursive = TRUE)
+      file_name <- paste(foldername, "/", file_name, ".rds", sep = "")
       saveRDS(CSVcatalogue, file_name)
     })
     CSVcatalogue
@@ -446,10 +456,16 @@ server <- function(input, output, session) {
       names(corpus) <- c("identifier", "text", "parsed")
       withProgress(message = 'Save Binary...', value = 0, {
         file_name <- unlist(strsplit(as.character(corpus[1,1]), ":", fixed = TRUE))[4]
-        file_name <- paste("./www/", file_name, "Treebank.rds", sep = "")
+        foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+        foldername <- paste("./www/data", foldername, sep = "/")
+        dir.create(foldername, recursive = TRUE)
+        file_name <- paste(foldername, "/", file_name, "Treebank.rds", sep = "")
         saveRDS(corpus[,c(1,2)], file_name)
         file_name <- unlist(strsplit(as.character(corpus[1,1]), ":", fixed = TRUE))[4]
-        file_name <- paste("./www/", file_name, "TreebankParsed.rds", sep = "")
+        foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+        foldername <- paste("./www/data", foldername, sep = "/")
+        dir.create(foldername, recursive = TRUE)
+        file_name <- paste(foldername, "/", file_name, "TreebankParsed.rds", sep = "")
         saveRDS(corpus[,c(1,3)], file_name)
         corpus[,c(1,2)]
       })
@@ -473,7 +489,10 @@ server <- function(input, output, session) {
     colnames(CSVcatalogue) <- c('identifier', 'text')
     withProgress(message = 'Save Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue[1,1]), ":", fixed = TRUE))[4]
-      file_name <- paste("./www/", file_name, ".rds", sep = "")
+      foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+      foldername <- paste("./www/data", foldername, sep = "/")
+      dir.create(foldername, recursive = TRUE)
+      file_name <- paste(foldername, "/", file_name, ".rds", sep = "")
       saveRDS(CSVcatalogue, file_name)
     })
     CSVcatalogue
@@ -484,7 +503,7 @@ server <- function(input, output, session) {
     if (input$morph_method == "Morpheus API") {
       return(selectInput("morphlang", label = "Choose Languages", choices = c("Latin", "Greek", "Arabic"))) 
     }
-    selectInput("stemdic", label = "Choose StemDictionary", choices = dir("./www/")[grep(".rds", dir("./www/"))])
+    fileInput('stemdic', 'Choose StemDictionary', accept=c('.rds'))
     })
   
   morph <- reactive({
@@ -497,11 +516,13 @@ server <- function(input, output, session) {
     })
   
   localStemDic <- reactive({
-    file_name <- input$stemdic
-    file_name <- paste("./www/", file_name, sep = "")
     
+    inFile <- input$stemdic
+    
+    if (is.null(inFile))
+      return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      stem_dictionary <- readRDS(file_name)
+      stem_dictionary <- readRDS(inFile$datapath)
     })
     
     ## Produce CSV Stem-Dictionary
@@ -517,11 +538,12 @@ server <- function(input, output, session) {
     
     ## Read in corpus
     
-    file_name <- input$morph_corpus
-    file_name <- paste("./www/", file_name, sep = "")
+    inFile <- input$morph_corpus
     
+    if (is.null(inFile))
+      return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      corpus <- readRDS(file_name)
+      corpus <- readRDS(inFile$datapath)
     })
 
     research_corpus <- corpus[,2]
@@ -573,7 +595,10 @@ server <- function(input, output, session) {
     
     withProgress(message = 'Save Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
-      file_name <- paste("./www/", file_name, "Parsed", ".rds", sep = "")
+      foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+      foldername <- paste("./www/data", foldername, sep = "/")
+      dir.create(foldername, recursive = TRUE)
+      file_name <- paste(foldername, "/", file_name, "-LocStemDicParsed.rds", sep = "")
       saveRDS(corrected_corpus_df, file_name)
     })
     
@@ -590,9 +615,6 @@ server <- function(input, output, session) {
     } else if (input$morphlang == "Arabic") {
       langurl <- "&lang=ara&engine=aramorph"
     }
-    
-    file_name <- input$morph_corpus
-    file_name <- paste("./www/", file_name, sep = "")
     
     XMLpassage2 <-function(xdata){
       result <- xmlParse(xdata)
@@ -650,9 +672,14 @@ server <- function(input, output, session) {
       }})
     }
     
+    inFile <- input$morph_corpus
+    
+    if (is.null(inFile))
+      return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      corpus <- readRDS(file_name)
+      corpus <- readRDS(inFile$datapath)
     })
+    
     research_corpus <- corpus[,2]
     research_corpus <- factor(research_corpus)
     identifier <- corpus[,1]
@@ -741,7 +768,10 @@ server <- function(input, output, session) {
     
     withProgress(message = 'Save Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
-      file_name <- paste("./www/", file_name, "Parsed", ".rds", sep = "")
+      foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+      foldername <- paste("./www/data", foldername, sep = "/")
+      dir.create(foldername, recursive = TRUE)
+      file_name <- paste(foldername, "/", file_name, "-MorphAPIParsed.rds", sep = "")
       saveRDS(corrected_corpus_df, file_name)
     })
     
@@ -769,11 +799,15 @@ server <- function(input, output, session) {
   output$topicmodelling <- renderDataTable({
     if (input$TMgo == 0)
       return()
-    file_name <- input$tm_corpus
-    file_name <- paste("./www/", file_name, sep = "")
+    
+    inFile <- input$tm_corpus
+    
+    if (is.null(inFile))
+      return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      research_corpus <- readRDS(file_name)
+      research_corpus <- readRDS(inFile$datapath)
     })
+    
     stopword_corpus <- as.character(research_corpus[,2])
     output_names <- as.character(research_corpus[,1])
     research_corpus <- as.character(research_corpus[,2])
@@ -871,12 +905,12 @@ server <- function(input, output, session) {
                        term.frequency = research_corpusAbstracts$term.frequency,
                        R=number_terms)
     
-    #Visualise
-    serVis(json, out.dir = 'www/temp_vis', open.browser = FALSE)
-    
+    #Visualise and save
     withProgress(message = 'Reading Texts', value = 0, {
-      research_corpus <- readRDS(file_name)
+      research_corpus <- readRDS(inFile$datapath)
     })
+    
+    serVis(json, out.dir = 'www/temp_vis', open.browser = FALSE)
     
     withProgress(message = 'Generating Tables', value = 0, {
     # Tables
