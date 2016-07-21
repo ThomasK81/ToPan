@@ -191,18 +191,29 @@ tabPanel("Morphology Service",
            mainPanel(
              dataTableOutput("MorpCorpus")
            ))),
-##### 1.3. Topic Modelling Input #######
-                 
+##### 1.3. Stop Words #######
+
+tabPanel("Stop Words",
+         sidebarLayout(
+           sidebarPanel(
+             fileInput('sw_corpus', 'SW Corpus', accept=c('.rds')),
+             sliderInput("stopnumber", label = "Number of Stopwords", min = 0, max = 400, value = 200),
+             textInput("add_stopwords", label = "Additional Stopwords", value = ""),
+             textInput("remove_stopwords", label = "Remove Words from Stopword list", value = ""),
+             actionButton("stopwordgo", "Submit")
+           ),
+           mainPanel(
+             dataTableOutput("stopwords")
+           ))),
+
+##### 1.4. Topic Modelling Input #######
+
                  tabPanel("LDA TM",
                           sidebarLayout(
                             sidebarPanel(
-                              "INPUT SELECTION",
                               fileInput('tm_corpus', 'TM Corpus', accept=c('.rds')),
-                              "STOPWORD SETTINGS",
+                              fileInput('stopwordlist', 'SW List', accept=c('.rds')),
                               sliderInput("occurrence", label = "Occurrence threshold", min = 1, max = 5, value = 3),
-                              sliderInput("stopnumber", label = "Number of Stopwords", min = 0, max = 400, value = 200),
-                              textInput("add_stopwords", label = "Additional Stopwords", value = ""),
-                              "TM SETTINGS",
                               sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
                               sliderInput("alpha", label = "Alpha", min = 0.00, max = 0.10, value = 0.02),
                               sliderInput("eta", label = "Eta", min = 0.00, max = 0.10, value = 0.02),
@@ -213,13 +224,13 @@ tabPanel("Morphology Service",
                             mainPanel(
                               dataTableOutput("topicmodelling")
                             ))),
-##### 1.4. Topic Modelling Visualisation Input #######
+##### 1.5. Topic Modelling Visualisation Input #######
                  
                  tabPanel("LDAvis", 
                           # Sidebar with a slider input for the number of bins
                           mainPanel(htmlOutput("topicmodels"))
                           ),
-##### 1.5. Topic Modelling Tables #######
+##### 1.6. Topic Modelling Tables #######
 
                  navbarMenu("LDA Tables", 
                             tabPanel("DocumentTopic (θ)", mainPanel(dataTableOutput("theta"))),
@@ -794,7 +805,58 @@ server <- function(input, output, session) {
     getPage()})
   
   
-##### 2.4. Processing TM #######
+##### 2.4. Stopwords #######
+  output$stopwords <- renderDataTable({
+    if (input$stopwordgo == 0)
+      return()
+    
+    inFile <- input$sw_corpus
+    
+    if (is.null(inFile))
+      return(NULL)
+    withProgress(message = 'Reading Texts', value = 0, {
+      research_corpus <- readRDS(inFile$datapath)
+    })
+    identifier <- as.character(research_corpus[1,1])
+    stopword_corpus <- as.character(research_corpus[,2])
+    stopword_corpus <- gsub("[[:punct:]]", " ", stopword_corpus)  # replace punctuation with space
+    stopword_corpus <- gsub("[[:cntrl:]]", " ", stopword_corpus)  # replace control characters with space
+    stopword_corpus <- gsub("^[[:space:]]+", "", stopword_corpus) # remove whitespace at beginning of documents
+    stopword_corpus <- gsub("[[:space:]]+$", "", stopword_corpus) # remove whitespace at end of documents
+    stopword_corpus <- gsub("[0-9]", "", stopword_corpus) #remove numbers
+    
+    # tokenize stopword_corpus on space and output as a list:
+    doc.list2 <- strsplit(stopword_corpus, "[[:space:]]+")
+    
+    # compute the table of stop_words:
+    all_for_stop_words <- unlist(doc.list2)
+    term.table2 <- table(all_for_stop_words)
+    term.table2 <- sort(term.table2, decreasing = TRUE)
+    
+    stop_words <- as.data.frame(term.table2)
+    rm(term.table2)
+    stop_words <- as.character(as.data.frame(stop_words[1:input$stopnumber,])[,1])
+    additional <- unlist(strsplit(input$add_stopwords, ",", fixed = TRUE))
+    additional <- gsub("^[[:space:]]+", "", additional) # remove whitespace at beginning of documents
+    additional <- gsub("[[:space:]]+$", "", additional) # remove whitespace at end of documents
+    stop_words <- c(additional, stop_words)
+    less <- unlist(strsplit(input$remove_stopwords, ",", fixed = TRUE))
+    less <- gsub("^[[:space:]]+", "", less) # remove whitespace at beginning of documents
+    less <- gsub("[[:space:]]+$", "", less) # remove whitespace at end of documents
+    stop_words <- stop_words [! stop_words %in% less]
+    
+    withProgress(message = 'Save Binary...', value = 0, {
+      file_name <- as.character(unlist(strsplit(identifier, ":", fixed = TRUE))[4])
+      foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+      foldername <- paste("./www/data", foldername, sep = "/")
+      dir.create(foldername, recursive = TRUE)
+      file_name <- paste(foldername, "/", file_name, "-MF", input$stopnumber, "Stopword.rds", sep = "")
+      saveRDS(stop_words, file_name)
+    })
+    
+    data.frame(Index = c(1:length(stop_words)), Word = stop_words)
+  })
+##### 2.5. Processing TM #######
   
   output$topicmodelling <- renderDataTable({
     if (input$TMgo == 0)
@@ -808,11 +870,16 @@ server <- function(input, output, session) {
       research_corpus <- readRDS(inFile$datapath)
     })
     
-    stopword_corpus <- as.character(research_corpus[,2])
+    inFile <- input$stopwordlist
+    
+    if (is.null(inFile))
+      return(NULL)
+    withProgress(message = 'Reading Texts', value = 0, {
+      stop_words <- readRDS(inFile$datapath)
+    })
+    
     output_names <- as.character(research_corpus[,1])
     research_corpus <- as.character(research_corpus[,2])
-    
-    
     research_corpus <- gsub("^[[:space:]]+", "", research_corpus) # remove whitespace at beginning of documents
     research_corpus <- gsub("[[:space:]]+$", "", research_corpus) # remove whitespace at end of documents
     research_corpus <- gsub("[[:space:]]+", " ", research_corpus) # remove multiple whitespace
@@ -836,25 +903,6 @@ server <- function(input, output, session) {
     term.table <- table(all_words)
     term.table <- sort(term.table, decreasing = TRUE)
     
-    # determing stopwords
-    
-    stopword_corpus <- gsub("[[:punct:]]", " ", stopword_corpus)  # replace punctuation with space
-    stopword_corpus <- gsub("[[:cntrl:]]", " ", stopword_corpus)  # replace control characters with space
-    stopword_corpus <- gsub("^[[:space:]]+", "", stopword_corpus) # remove whitespace at beginning of documents
-    stopword_corpus <- gsub("[[:space:]]+$", "", stopword_corpus) # remove whitespace at end of documents
-    stopword_corpus <- gsub("[0-9]", "", stopword_corpus) #remove numbers
-    
-    # tokenize stopword_corpus on space and output as a list:
-    doc.list2 <- strsplit(stopword_corpus, "[[:space:]]+")
-    
-    # compute the table of stop_words:
-    all_for_stop_words <- unlist(doc.list2)
-    term.table2 <- table(all_for_stop_words)
-    term.table2 <- sort(term.table2, decreasing = TRUE)
-    
-    stop_words <- as.data.frame(term.table2)
-    rm(term.table2)
-    stop_words <- as.character(as.data.frame(stop_words[1:input$stopnumber,])[,1])
     occurences <- input$occurrence
     del <- names(term.table) %in% stop_words | term.table < occurences
     term.table <- term.table[!del]
@@ -906,6 +954,7 @@ server <- function(input, output, session) {
                        R=number_terms)
     
     #Visualise and save
+    inFile <- input$tm_corpus
     withProgress(message = 'Reading Texts', value = 0, {
       research_corpus <- readRDS(inFile$datapath)
     })
