@@ -163,14 +163,14 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                        mainPanel(
                                          dataTableOutput("catalogue5")
                                        ))),
-##### 1.1.6. CSV INPUT #######
+##### 1.1.6. 82XF INPUT #######
 tabPanel("82XF",
          sidebarLayout(
            sidebarPanel(
              fileInput('file3', 'Choose 82XF File',
                        accept=c('text/csv', 
                                 'text/comma-separated-values,text/plain', 
-                                '.82XF')),
+                                '.82XF', '.82xf')),
              actionButton("XFgo", "Submit")
            ),
            mainPanel(
@@ -833,9 +833,9 @@ server <- function(input, output, session) {
     term.table2 <- table(all_for_stop_words)
     term.table2 <- sort(term.table2, decreasing = TRUE)
     
-    stop_words <- as.data.frame(term.table2)
+    stop_words <- names(term.table2)
     rm(term.table2)
-    stop_words <- as.character(as.data.frame(stop_words[1:input$stopnumber,])[,1])
+    stop_words <- stop_words[1:input$stopnumber]
     additional <- unlist(strsplit(input$add_stopwords, ",", fixed = TRUE))
     additional <- gsub("^[[:space:]]+", "", additional) # remove whitespace at beginning of documents
     additional <- gsub("[[:space:]]+$", "", additional) # remove whitespace at end of documents
