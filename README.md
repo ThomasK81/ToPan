@@ -11,7 +11,7 @@ ToPān is also still under active development. This is an alpha release. More fe
 ##### Trying it (running it from the GitHub Repo)
 
 1. Install [R](https://www.r-project.org) and optionally [RStudio](https://www.rstudio.com) 
-2. In RStudio/R install some packages you will need: `install.packages("shiny")`, `install.packages("LDAvis")`, `install.packages("XML")`, `install.packages("xml2")` `install.packages("RCurl")`, `install.packages("httr")`, `install.packages("lda")`, `install.packages("servr")` 
+2. In RStudio/R install some packages you will need: `install.packages("shiny")`, `install.packages("LDAvis")`, `install.packages("XML")`, `install.packages("xml2")` `install.packages("RCurl")`, `install.packages("httr")`, `install.packages("lda")`, `install.packages("servr"), install.packages("markdown")` 
 3. `library(shiny)`
 4. `runUrl("https://github.com/ThomasK81/ToPan/archive/master.zip")`
 5. Enjoy!
