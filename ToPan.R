@@ -254,10 +254,19 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                      sidebarLayout(
                                        sidebarPanel(
                                          "INPUT SELECTION",
-                                         selectInput("download_corpus", label = "Corpus", choices = dir("./www/")[grep(".rds", dir("./www/"))]),
-                                         actionButton("CorpusDownloadGo", "Download")
+                                         uiOutput("dlcorpusUI"),
+                                         actionButton("CorpusDownloadGo", "Preview"),
+                                         downloadButton('downloadCorpus', 'Download')
                                        ),
-                                       mainPanel(dataTableOutput("download_corpus"))))
+                                       mainPanel(dataTableOutput("download_corpus")))),
+                            tabPanel("Theta-Table",
+                                     sidebarLayout(
+                                       sidebarPanel(
+                                         "INPUT SELECTION",
+                                         uiOutput("dlthetaUI"),
+                                         downloadButton('downloadtheta', 'Download')
+                                       ),
+                                       mainPanel(dataTableOutput("prevtheta"))))
                  )
 )
 
@@ -1172,6 +1181,120 @@ server <- function(input, output, session) {
       read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
       })
     })
+  
+##### 2.6. Downloads #####
+##### 2.6.1. Corpus #####
+  output$dlcorpusUI <- renderUI({
+    ServerCorpus <- list.files(path = "./www", pattern = ".rds", recursive = TRUE, full.names = TRUE)
+    ServerCorpus <- ServerCorpus[which(grepl("Stopword", ServerCorpus) == FALSE)]
+    ServerCorpus <- ServerCorpus[which(grepl("theta", ServerCorpus) == FALSE)]
+    ServerCorpus <- ServerCorpus[which(grepl("phi", ServerCorpus) == FALSE)]
+    names(ServerCorpus) <- sapply(strsplit(ServerCorpus, "/"), function(x) {x[length(x)]})
+    selectInput("download_corpus", label = "Corpus", choices = ServerCorpus)
+  })
+  
+  output$download_corpus <- renderDataTable({
+    if (input$CorpusDownloadGo == 0)
+      return()
+    file_name <- input$download_corpus
+    withProgress(message = 'Reading Texts', value = 0, {
+      research_corpus <- readRDS(file_name)
+    })
+    identifier <- as.character(research_corpus[,1])
+    passage <- as.character(research_corpus[,2])
+    index <- c(1:length(identifier))
+    download_corpus <- data.frame(identifier, passage, index)
+    PrevUrn <- vector()
+    NextUrn <- vector()
+    for (i in 1:length(index)) {
+      if(i-1 == 0) {
+        PrevUrn[i] <- "NULL"
+      } else {
+        PrevUrn[i] <- identifier[which(index == i-1)]}
+      if(i+1 > length(identifier)) {
+        NextUrn[i] <- "NULL"
+      } else {
+        NextUrn[i] <- identifier[which(index == i+1)]}
+    }
+    
+    download_corpus <- data.frame(identifier, PrevUrn, index, NextUrn, passage)
+    colnames(download_corpus) <- c("Urn", "PrevUrn", "SequenceIndex", "NextUrn", "TextContent")
+    download_corpus
+  })
+  
+  output$downloadCorpus <- downloadHandler(
+    filename = function() {
+      paste("test", "82xf", sep = ".")
+    },
+    content = function(file) {
+    file_name <- input$download_corpus
+    withProgress(message = 'Reading Texts', value = 0, {
+      research_corpus <- readRDS(file_name)
+    })
+    identifier <- as.character(research_corpus[,1])
+    passage <- as.character(research_corpus[,2])
+    index <- c(1:length(identifier))
+    download_corpus <- data.frame(identifier, passage, index)
+    PrevUrn <- vector()
+    NextUrn <- vector()
+    for (i in 1:length(index)) {
+      if(i-1 == 0) {
+        PrevUrn[i] <- "NULL"
+      } else {
+        PrevUrn[i] <- identifier[which(index == i-1)]}
+      if(i+1 > length(identifier)) {
+        NextUrn[i] <- "NULL"
+      } else {
+        NextUrn[i] <- identifier[which(index == i+1)]}
+    }
+    download_corpus <- data.frame(identifier, PrevUrn, index, NextUrn, passage)
+    colnames(download_corpus) <- c("Urn", "PrevUrn", "SequenceIndex", "NextUrn", "TextContent")
+    file_name <- unlist(strsplit(file_name, "/", fixed = TRUE))[3]
+    file_name <- unlist(strsplit(file_name, ".", fixed = TRUE))[c(1,2)]
+    file_name <- paste(file_name, sep = "", collapse = ".")
+    file_name <- paste("./www/", file_name, ".82xf", sep = "")
+    write.table(download_corpus, file, quote = TRUE, sep = "#", row.names = FALSE)
+  })
+
+##### 2.6.2. Phi-Tables #####
+
+##### 2.6.3. Theta-Tables #####
+  
+  output$dlthetaUI <- renderUI({
+    ServerTheta <- list.files(path = "./www", pattern = "theta.csv", recursive = TRUE, full.names = TRUE)
+    names(ServerTheta) <- sapply(strsplit(ServerTheta, "/"), function(x) {x[length(x)-1]})
+    selectInput("ThetaTableDL", label = "Choose TM", choices = ServerTheta)
+  })
+  
+  output$prevtheta <- renderDataTable({
+    inFile <- input$ThetaTableDL
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+    withProgress(message = 'Reading Texts', value = 0, {
+      read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
+    })
+  })
+  
+  output$downloadtheta <- downloadHandler(
+    filename = function() {
+      paste("test", "csv", sep = ".")
+      },
+    content = function(file) {
+      inFile <- input$ThetaTableDL
+      
+      if (is.null(inFile))
+        return(NULL)
+      downloadtheta <- withProgress(message = 'Reading Texts', value = 0, {
+        read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
+      })
+      write.table(downloadtheta, file, quote = TRUE, sep = ",", row.names = FALSE)
+      }
+  )
+  
+##### 2.6.4. LDAvis Zip-file #####
+  
 }
 
 ##### 3. Start It Up #######
