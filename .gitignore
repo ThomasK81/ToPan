@@ -13,3 +13,4 @@ Catullus
 treebank.xml # seems to contain a selection of greek texts only, so considering it data as well
 # Output
 temp_vectors.bin
+*.html
