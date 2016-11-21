@@ -14,3 +14,6 @@ treebank.xml # seems to contain a selection of greek texts only, so considering 
 # Output
 temp_vectors.bin
 *.html
+*-LocStemDicParsed.rds
+www/stemdic.csv
+www/StemDic.rds
