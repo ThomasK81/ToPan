@@ -468,11 +468,14 @@ server <- function(input, output, session) {
     withProgress(message = 'Reading texts', value = 0, {
       CSVcatalogue <- fread(inFile$datapath, header = input$header, sep = input$sep)
     })
-    # TODO: if (column('label')) { # Either false or true, don't know how to access that info! –jrs
-    colnames(CSVcatalogue) <- c('identifier', 'text', 'label')
-    # } else {
-    # colnames(CSVcatalogue) <- c('identifier', 'text')
-    # }
+
+    cols <- c('identifier', 'text')
+    # R has got to be the most clumsy programming language on the planet
+    if (!is.null(input$label)) {if (input$label == TRUE) {
+      cols = append(cols, 'label')
+    }}
+    colnames(CSVcatalogue) <- cols
+
     withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue$identifier), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
