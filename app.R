@@ -80,7 +80,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
 ##### 1.0.1. Home #######
                  tabPanel("Home",
                           fluidRow(column(4, br(), div(img(src = "melete.png", height = "200"))),
-                                   column(8, includeMarkdown("home.md")))),                 
+                                   column(8, includeMarkdown("doc/about.md")))),                 
                  tabPanel("Instructions",
                           sidebarLayout(sidebarPanel(br(), h6("Instructions"),
                                                      actionLink("data_link", "1. Entering the Data"), br(),
