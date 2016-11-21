@@ -67,3 +67,4 @@ e) to display the Original Work publicly.
 (e) Original Works licensed under this license shall reference "Non-Profit OSL 3.0" in licensing notices to distinguish them from works licensed under the original OSL 3.0 license.
 
 A brief explanation of this license is available.
+

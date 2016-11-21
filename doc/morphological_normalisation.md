@@ -7,3 +7,4 @@ ToPān lets you morphologically normalise your data. For this it uses Perseid's 
 *NB: ToPān will create a Stemming Dictionary if you select Morpheus API as your parser, so you do not have to go to lunch break for a second time...*
 
 **TreeBanking Files:** If you have selected TreeBank XML to ingest the corpus data. A parsed version of the corpus has already been created during the import and you can go straight to topic modelling.
+
