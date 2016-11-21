@@ -1,8 +1,15 @@
 # Windows and Mac OS X
 Thumbs.db
 .DS_Store
+# R, Rstudio
 .RData
 .RHistory
+# Data
 *.rds
 *.csv
 *.82xf
+Models
+Catullus
+treebank.xml # seems to contain a selection of greek texts only, so considering it data as well
+# Output
+temp_vectors.bin
