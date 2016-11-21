@@ -20,7 +20,7 @@ for (package in c('shiny', 'LDAvis', 'XML', 'xml2', 'RCurl', 'httr', 'lda', 'ser
 
 ##### Trying it (running it from the GitHub Repo)
 
-1. Install [R](https://www.r-project.org) and optionally [RStudio](https://www.rstudio.com) 
+1. Install [R](https://www.r-project.org) and optionally [RStudio](https://www.rstudio.com), which is a great help for working with R projects
 2. Install required libraries (see above)
 3. `library(shiny)`
 4. `runUrl("https://github.com/ThomasK81/ToPan/archive/master.zip")`
@@ -28,10 +28,4 @@ for (package in c('shiny', 'LDAvis', 'XML', 'xml2', 'RCurl', 'httr', 'lda', 'ser
 
 ##### Installing it
 
-You need to install R and the libraries mentioned under "Trying it". I also recommend to install RStudio. Then just clone the repository, modify it as you like and run it as an RShiny app.
-
-1. Install [R](https://www.r-project.org) and optionally [RStudio](https://www.rstudio.com) 
-2. Install required libraries (see above)
-3. `library(shiny)`
-4. `runApp('GithubProjects/ToPan')` ("GithubProjects" or whatever folder you have cloned it to)
-5. Enjoy!
+As in the previous section, you'll need R and the required libraries. Then clone the repository, modify things if you like, and run the Shiny app from your local machine with `./to_pan` from within your clone's folder.
