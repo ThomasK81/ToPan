@@ -1,12 +1,7 @@
 ##### 0.1, Libraries #######
 
-library(shiny)
-library(RCurl)
-library(XML) # also install XML2!
-library(httr)
-library(lda)
-library(LDAvis)
-library(data.table)
+if (! require('pacman')) install.packages('pacman', repos = 'http://cran.rstudio.com/')
+pacman::p_load('shiny', 'methods', 'LDAvis', 'XML', 'xml2', 'RCurl', 'httr', 'lda', 'servr', 'markdown', 'data.table')
 
 ##### 0.2. Functions #######
 
