@@ -1,4 +1,4 @@
-##### 0.1, Libraries #######
+##### 0. Libraries needed #######
 
 library(shiny)
 library(RCurl)
@@ -6,32 +6,32 @@ library(XML) #also install XML2
 library(httr)
 library(lda)
 library(LDAvis)
-library(data.table)
+##### 0.1. Preprocessing of CTS API inventory #######
 
-##### 0.2. Functions #######
+xml.url <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
+xmlfile <- xmlTreeParse(xml.url)
+xmltop <- xmlRoot(xmlfile)
+xmltop <- xmltop[[2]]
+xmltop <- xmltop[[1]]
 
-FetchCTSRep <- function(x) {
-  xmlfile <- xmlTreeParse(x)
-  xmltop <- xmlRoot(xmlfile)
-  xmltop <- xmltop[[2]]
-  xmltop <- xmltop[[1]]
-  output <- list()
-  counter <- 0
-  for (i in 1:length(xmltop)) {
-    for (j in 1:length(xmltop[[i]])) {
-      for (x in 1:length(xmltop[[i]][[j]])) {
-        counter <- counter + 1
-        output[[counter]] <- xmlAttrs(xmltop[[i]][[j]][[x]])["urn"]
-      }
+output <- list()
+counter <- 0
+for (i in 1:length(xmltop)) {
+   for (j in 1:length(xmltop[[i]])) {
+    for (x in 1:length(xmltop[[i]][[j]])) {
+      counter <- counter + 1
+      output[[counter]] <- xmlAttrs(xmltop[[i]][[j]][[x]])["urn"]
     }
   }
-  urns <- unique(unlist(output))
-  urns <- urns[!is.na(urns)]
-  return(urns)
-}
+ }
+urns <- unique(unlist(output))
+urns <- urns[!is.na(urns)]
+metadata <- data.frame(urns)
+
+##### 0.2 Global Functions #######
 
 fetch_reffs <- function(x){
-   message("Retrieve Reffs for ", x)
+  message("Retrieve Reffs for ", x)
   URL <- paste(reffURL, x, sep = "")
   URLcontent <- content(GET(URL), type = "text/xml")
   xmlfile <- xmlTreeParse(URLcontent)
@@ -39,9 +39,9 @@ fetch_reffs <- function(x){
   reffs <- vector()
   for (i in 1:length(xmltop[[2]][[1]])) {
     reffs[i] <- xmlValue(xmltop[[2]][[1]][[i]])
-    }
-  return(reffs)
   }
+  return(reffs)
+}
 
 test_reffs <- function(x){
   message("Retrieve Reffs for ", x)
@@ -76,7 +76,7 @@ fetch_passage <- function(x){
 
 ##### 1. User Interface #######
 
-ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height = "25"), "ToPān v.0.2"), windowTitle = "ToPān v.0.2 (beta)",
+ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height = "25"), "ToPān v.0.1"), windowTitle = "ToPān v.0.1",
 ##### 1.0.1. Home #######
                  tabPanel("Home",
                           fluidRow(column(4, br(), div(img(src = "melete.png", height = "200"))),
@@ -95,13 +95,13 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                             tabPanel("CTS API", 
                                      sidebarLayout(
                                        sidebarPanel(
-                                         uiOutput("CTSUI"),
+                                         selectInput("cts_urn", label = "CTS URN", choices = urns),
                                          actionButton("apigo", "Submit")
-                                       ),
+                                         ),
                                        mainPanel(
                                          dataTableOutput("catalogue")
                                        )
-                                     )),
+                                       )),
 ##### 1.1.2. LOCAL CAPITAINS INPUT #######
                             tabPanel("Local CAPITainS", 
                                      sidebarLayout(
@@ -113,12 +113,17 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                        mainPanel(
                                          dataTableOutput("catalogue2")
                                        ))),
-##### 1.1.3. Server-Side RDS #######
-                            tabPanel("Server-Side RDS",
+##### 1.1.3. DNZ API INPUT #######
+                            tabPanel("DNZ API",
                                      sidebarLayout(
                                        sidebarPanel(
-                                         uiOutput("RDSUI"),
-                                         actionButton("RDSgo", "Submit")
+                                         textInput("search_text", label = "Search Text", value = "christchurch+earthquake"),
+                                         textInput("api_key", label = "DNZ API Key", value = ""),
+                                         radioButtons("collection", label = "Collection", 
+                                                      choices = list("ATL Cartoon Descriptions" = 1, "Index NZ Abstracts" = 2, "no search" = 3
+                                                      ), selected = 3),
+                                         textInput("date", label = "Year", value = "2011"),
+                                         actionButton("DNZgo", "Submit")
                                        ),
                                        mainPanel(
                                          dataTableOutput("catalogue3")
@@ -137,9 +142,10 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                                         Semicolon=';',
                                                         Tab='\t'),
                                                       ','),
-                                         radioButtons('label', 'Label (has to be column 3)',
-                                                      c(Yes=TRUE,
-                                                        No=FALSE),
+                                         radioButtons('quote', 'Quote',
+                                                      c(None='',
+                                                        'Double Quote'='"',
+                                                        'Single Quote'="'"),
                                                       '"'),
                                          actionButton("CSVgo", "Submit")
                                        ),
@@ -158,52 +164,55 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                          dataTableOutput("catalogue5")
                                        ))),
 ##### 1.1.6. 82XF INPUT #######
-                            tabPanel("82XF",
-                                     sidebarLayout(
-                                       sidebarPanel(
-                                         fileInput('file3', 'Choose 82XF File',
-                                                   accept=c('.82XF', '.82xf')),
-                                         actionButton("XFgo", "Submit")
-                                       ),
-                                       mainPanel(
-                                         dataTableOutput("catalogue6")
-                                       )))
-                 ),
+tabPanel("82XF",
+         sidebarLayout(
+           sidebarPanel(
+             fileInput('file3', 'Choose 82XF File',
+                       accept=c('text/csv', 
+                                'text/comma-separated-values,text/plain', 
+                                '.82XF', '.82xf')),
+             actionButton("XFgo", "Submit")
+           ),
+           mainPanel(
+             dataTableOutput("catalogue6")
+           )))
+                            ),
 ##### 1.2. Morphology Service Input #######
                  
-                 tabPanel("Morphology Service",
-                          sidebarLayout(
-                            sidebarPanel(
-                              uiOutput("MorphCorpusUI"),
-                              radioButtons("morph_method", label = "Method", choices = c("Morpheus API", "Local StemDictionary", "Server StemDictionary")),
-                              uiOutput("MorphUI"),
-                              actionButton("Morphgo", "Submit")
-                            ),
-                            mainPanel(
-                              dataTableOutput("MorpCorpus")
-                            ))),
+tabPanel("Morphology Service",
+         sidebarLayout(
+           sidebarPanel(
+             fileInput('morph_corpus', 'Corpus selection',
+                       accept=c('.rds')),
+             radioButtons("morph_method", label = "Method", choices = c("Morpheus API", "Local StemDictionary")),
+             uiOutput("MorphUI"),
+             actionButton("Morphgo", "Submit")
+           ),
+           mainPanel(
+             dataTableOutput("MorpCorpus")
+           ))),
 ##### 1.3. Stop Words #######
-                 
-                 tabPanel("Stop Words",
-                          sidebarLayout(
-                            sidebarPanel(
-                              uiOutput("SWCorpusUI"),
-                              sliderInput("stopnumber", label = "Number of Stopwords", min = 0, max = 400, value = 200),
-                              textInput("add_stopwords", label = "Additional Stopwords", value = ""),
-                              textInput("remove_stopwords", label = "Remove Words from Stopword list", value = ""),
-                              actionButton("stopwordgo", "Submit")
-                            ),
-                            mainPanel(
-                              dataTableOutput("stopwords")
-                            ))),
-                 
+
+tabPanel("Stop Words",
+         sidebarLayout(
+           sidebarPanel(
+             fileInput('sw_corpus', 'SW Corpus', accept=c('.rds')),
+             sliderInput("stopnumber", label = "Number of Stopwords", min = 0, max = 400, value = 200),
+             textInput("add_stopwords", label = "Additional Stopwords", value = ""),
+             textInput("remove_stopwords", label = "Remove Words from Stopword list", value = ""),
+             actionButton("stopwordgo", "Submit")
+           ),
+           mainPanel(
+             dataTableOutput("stopwords")
+           ))),
+
 ##### 1.4. Topic Modelling Input #######
-                 
+
                  tabPanel("LDA TM",
                           sidebarLayout(
                             sidebarPanel(
-                              uiOutput("ProcessTM"),
-                              uiOutput("ProcessSW"),
+                              fileInput('tm_corpus', 'TM Corpus', accept=c('.rds')),
+                              fileInput('stopwordlist', 'SW List', accept=c('.rds')),
                               sliderInput("occurrence", label = "Occurrence threshold", min = 1, max = 5, value = 3),
                               sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
                               sliderInput("alpha", label = "Alpha", min = 0.00, max = 0.10, value = 0.02),
@@ -218,60 +227,29 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
 ##### 1.5. Topic Modelling Visualisation Input #######
                  
                  tabPanel("LDAvis", 
-                            uiOutput("VISUI"),
-                            mainPanel(htmlOutput("topicmodels")
-                            )
-                 ),
+                          # Sidebar with a slider input for the number of bins
+                          mainPanel(htmlOutput("topicmodels"))
+                          ),
 ##### 1.6. Topic Modelling Tables #######
-                 
+
                  navbarMenu("LDA Tables", 
-                            tabPanel("DocumentTopic (θ)",
-                                     uiOutput("thetaUI"),
-                                     mainPanel(dataTableOutput("theta"))),
-                            tabPanel("TermTopic (φ)", 
-                                     uiOutput("phiUI"),
-                                     mainPanel(dataTableOutput("phi")))
+                            tabPanel("DocumentTopic (θ)", mainPanel(dataTableOutput("theta"))),
+                            tabPanel("TermTopic (φ)", mainPanel(dataTableOutput("phi")))
                  ),
-                 
-##### 1.7. Explore #######
-                 
-                 navbarMenu("Explore",
-                            tabPanel("Topics over IDs", mainPanel()),
-                            tabPanel("Topics in Works", mainPanel()),
-                            tabPanel("Most similar", mainPanel()),
-                            tabPanel("Clusters", mainPanel())
-                 ),
-                 
-##### 1.8. Downloads #######
-                 
-                 navbarMenu("Downloads",
-                            tabPanel("Corpus",
-                                     sidebarLayout(
-                                       sidebarPanel(
-                                         "INPUT SELECTION",
-                                         uiOutput("dlcorpusUI"),
-                                         actionButton("CorpusDownloadGo", "Preview"),
-                                         downloadButton('downloadCorpus', 'Download')
-                                       ),
-                                       mainPanel(dataTableOutput("download_corpus")))),
-                            tabPanel("Phi-Table",
-                                     sidebarLayout(
-                                       sidebarPanel(
-                                         "INPUT SELECTION",
-                                         uiOutput("dlphiUI"),
-                                         downloadButton('downloadphi', 'Download')
-                                       ),
-                                       mainPanel(dataTableOutput("prevphi")))),
-                            tabPanel("Theta-Table",
-                                     sidebarLayout(
-                                       sidebarPanel(
-                                         "INPUT SELECTION",
-                                         uiOutput("dlthetaUI"),
-                                         downloadButton('downloadtheta', 'Download')
-                                       ),
-                                       mainPanel(dataTableOutput("prevtheta"))))
-                 )
+
+##### 1.6. Downloads #######
+
+navbarMenu("Downloads",
+           tabPanel("Corpus",
+                    sidebarLayout(
+                      sidebarPanel(
+                        "INPUT SELECTION",
+                        selectInput("download_corpus", label = "Corpus", choices = dir("./www/")[grep(".rds", dir("./www/"))]),
+                        actionButton("CorpusDownloadGo", "Download")
+                        ),
+                      mainPanel(dataTableOutput("download_corpus"))))
 )
+                 )
 
 ##### 2. Server #######
 
@@ -279,15 +257,36 @@ server <- function(input, output, session) {
   
   options(shiny.maxRequestSize=30*1024^2)
   
+##### 2.0.1 Home Viz #######
+  
+  values <- reactiveValues(mdfile = "preliminary.md")
+  
+  observeEvent(input$copyright_link, {
+    values$mdfile <- "copyright.md"
+  })
+  
+  observeEvent(input$data_link, {
+    values$mdfile <- "dataentry.md"
+  })
+  
+  observeEvent(input$morph_link, {
+    values$mdfile <- "morphologicalnormalisation.md"
+  })
+  
+  observeEvent(input$tm_link, {
+    values$mdfile <- "settingtmvalues.md"
+  })
+  
+  observeEvent(input$results_link, {
+    values$mdfile <- "understandingresults.md"
+  })
+  
+  output$markdownfile <- renderUI({  
+    includeMarkdown(values$mdfile)
+  })
+  
 ##### 2.1. Catalogues #######
 ##### 2.1.1. Output CTS API Corpus #######  
-  output$CTSUI <- renderUI({
-    CTS.Rep <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
-    withProgress(message = 'Fetching URNs form server...', value = 0, {
-      urns <- FetchCTSRep(CTS.Rep)
-    })
-    selectInput("cts_urn", label = "CTS URN", choices = urns)
-    })
   
   output$catalogue <- renderDataTable({
     if (input$apigo == 0)
@@ -349,7 +348,7 @@ server <- function(input, output, session) {
   output$catalogue2 <- renderDataTable({
     if (input$CAPITAINSgo == 0)
       return()
-    
+  
     baseURL <- paste(input$api_url, "GetPassge&urn=", sep = "")
     reffURL <- paste(input$api_url, "GetValidReff&urn=", sep = "")
     requestURN <- input$api_cts_urn
@@ -401,31 +400,7 @@ server <- function(input, output, session) {
     })
     corpus.df
   })
-  
-##### 2.1.3. Output Server-Side RDS #######
-  output$RDSUI <- renderUI({
-    ServerCorpora <- list.files(path = "./www/data", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
-    ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
-    names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
-    selectInput("serverRDS", label = "Choose RDS file", choices = ServerCorpora)
-    })
-  
-  output$catalogue3 <- renderDataTable({
-    
-    if (input$RDSgo == 0)
-      return()
-    inFile <- input$serverRDS
-    
-    if (is.null(inFile))
-      return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
-      CSVcatalogue <- readRDS(inFile)
-    })
-    CSVcatalogue
-  })
-  
+##### 2.1.3. Output DNZ API Corpus #######
 ##### 2.1.4. Output CSV Corpus #######
   
   output$catalogue4 <- renderDataTable({
@@ -437,11 +412,11 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      CSVcatalogue <- fread(inFile$datapath, header = input$header, sep = input$sep)
+      CSVcatalogue <- read.csv(inFile$datapath, header = input$header, sep = input$sep, quote = input$quote)
     })
     colnames(CSVcatalogue) <- c('identifier', 'text')
     withProgress(message = 'Save Binary...', value = 0, {
-      file_name <- unlist(strsplit(as.character(CSVcatalogue$identifier), ":", fixed = TRUE))[4]
+      file_name <- unlist(strsplit(as.character(CSVcatalogue[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
       dir.create(foldername, recursive = TRUE)
@@ -450,14 +425,13 @@ server <- function(input, output, session) {
     })
     CSVcatalogue
   })
-  
 ##### 2.1.5. Output Treebank Corpus #######
   
   output$catalogue5 <- renderDataTable({
     
     if (input$Treebankgo == 0)
       return()
-    
+
     inFile <- input$file2
     
     if (is.null(inFile))
@@ -503,14 +477,12 @@ server <- function(input, output, session) {
         foldername <- paste("./www/data", foldername, sep = "/")
         dir.create(foldername, recursive = TRUE)
         file_name <- paste(foldername, "/", file_name, "TreebankParsed.rds", sep = "")
-        corpus <- corpus[,c(1,3)]
-        names(corpus) <- c("identifier", "text")
         saveRDS(corpus[,c(1,3)], file_name)
         corpus[,c(1,2)]
       })
     })
   })
-  
+
 ##### 2.1.6. Output 82XF Corpus #######
   
   output$catalogue6 <- renderDataTable({
@@ -522,9 +494,9 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      CSVcatalogue <- fread(inFile$datapath, header = TRUE, sep = "#")
+      CSVcatalogue <- read.csv(inFile$datapath, header = TRUE, sep = "#", quote = "")
     })
-    CSVcatalogue <- data.frame(CSVcatalogue$identifier, CSVcatalogue$passage)
+    CSVcatalogue <- data.frame(CSVcatalogue[,1], CSVcatalogue[,5])
     colnames(CSVcatalogue) <- c('identifier', 'text')
     withProgress(message = 'Save Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue[1,1]), ":", fixed = TRUE))[4]
@@ -538,26 +510,12 @@ server <- function(input, output, session) {
   })
   
 ##### 2.2. Processing Morphology #######
-  
-  output$MorphCorpusUI <- renderUI({
-    ServerCorpora <- list.files(path = "./www/data", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
-    ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
-    names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
-    selectInput("morph_corpus", label = "Choose RDS file", choices = ServerCorpora)
-  })
-  
   output$MorphUI <- renderUI({
     if (input$morph_method == "Morpheus API") {
       return(selectInput("morphlang", label = "Choose Languages", choices = c("Latin", "Greek", "Arabic"))) 
     }
-    if (input$morph_method == "Server StemDictionary") {
-      #### find filenames .rds
-      return(selectInput("stemdic", label = "Choose StemDictionary", choices = list.files(path = "./www", pattern = "StemDic*.rds", recursive = TRUE, full.names = TRUE)))
-    }
     fileInput('stemdic', 'Choose StemDictionary', accept=c('.rds'))
-  })
+    })
   
   morph <- reactive({
     if (input$Morphgo == 0)
@@ -566,99 +524,7 @@ server <- function(input, output, session) {
       return(morpheus())
     if (input$morph_method == "Local StemDictionary")
       return(localStemDic())
-    if (input$morph_method == "Server StemDictionary")
-      return(serverStemDic())
-  })
-  
-  serverStemDic <- reactive({
-    
-    inFile <- input$stemdic
-    
-    if (is.null(inFile))
-      return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
-      stem_dictionary <- readRDS(inFile$datapath)
     })
-    
-    ## Produce CSV Stem-Dictionary
-    
-    stem_dictionary_CSV <- vapply(stem_dictionary, 
-                                  function(x){result <- paste(x, collapse = ";")
-                                  return(result)
-                                  },
-                                  character(1))
-    stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
-    colnames(stem_dictionary_CSV) <- c("form", "lemmata")
-    write.csv(stem_dictionary_CSV, file = "./www/stemdic.csv")
-    
-    ## Read in corpus
-    
-    inFile <- input$morph_corpus
-    
-    if (is.null(inFile))
-      return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
-      corpus <- readRDS(inFile)
-    })
-    
-    research_corpus <- corpus$text
-    research_corpus <- as.character(research_corpus)
-    identifier <- corpus[,1]
-    identifier <- as.character(identifier)
-    
-    ### Normalise Corpus
-    
-    lemmatiser <- function(x){
-      lemmatised <- stem_dictionary[[x]]
-      return(lemmatised)}
-    
-    choose_lemma <- function(x){
-      if (is.null(x))
-        return(x)
-      lemma <- names(which(NumberOccurrences[x]==max(NumberOccurrences[x])))
-      if (length(lemma)==1) {return(lemma)
-      }
-      else {return (x[1])}
-    }
-    temp <- strsplit(research_corpus, " ")
-    temp_correct <- list()
-    for (i in 1:length(temp)) {
-      temp_correct[[i]] <- sapply(temp[[i]], lemmatiser) 
-    }
-    NumberOccurrences <- table(unlist(temp_correct))
-    
-    corrected_corpus <- list()
-    for (n in 1:length(temp_correct)) {
-      temp_corrected <- list()
-      counter <- n
-      for (i in 1:length(temp_correct[[counter]])) {
-        if (is.null(temp_correct[[counter]][[i]])) {
-          temp_corrected[[i]] <- names(temp_correct[[counter]][i])
-        } else {
-          temp_corrected[[i]] <- choose_lemma(temp_correct[[counter]][[i]]) 
-        }  
-      }  
-      corrected_corpus[[n]] <- temp_corrected
-    }
-    
-    for (i in 1:length(corrected_corpus)) {
-      corrected_corpus[[i]] <- paste(unlist(corrected_corpus[[i]]), collapse=" ")
-    }
-    research_corpus <- unlist(corrected_corpus)
-    corrected_corpus_df <- data.frame(identifier, research_corpus)
-    colnames(corrected_corpus_df) <- c('identifier', 'text')
-    
-    withProgress(message = 'Save Binary...', value = 0, {
-      file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
-      foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
-      foldername <- paste("./www/data", foldername, sep = "/")
-      dir.create(foldername, recursive = TRUE)
-      file_name <- paste(foldername, "/", file_name, "-LocStemDicParsed.rds", sep = "")
-      saveRDS(corrected_corpus_df, file_name)
-    })
-    
-    return(corrected_corpus_df)
-  })
   
   localStemDic <- reactive({
     
@@ -688,10 +554,10 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      corpus <- readRDS(inFile)
+      corpus <- readRDS(inFile$datapath)
     })
-    
-    research_corpus <- corpus$text
+
+    research_corpus <- corpus[,2]
     research_corpus <- as.character(research_corpus)
     identifier <- corpus[,1]
     identifier <- as.character(identifier)
@@ -770,51 +636,51 @@ server <- function(input, output, session) {
       xname <- xmlName(x)
       xattrs <- xmlAttrs(x)
       c(sapply(xmlChildren(x), xmlValue), name = xname, xattrs)}
-    
+ 
     parsing <- function(x){
-      word_form <- x
-      withProgress(message = paste('Parse ', word_form, ": ", round((match(word_form, corpus_words)-1)/length(corpus_words)*100, digits=2), '%'), value = 0, {
-        URL <- paste(morpheusURL, word_form, langurl, sep = "")
-        
-        URLcontent <- tryCatch({
-          getURLContent(URL)}, 
+        word_form <- x
+        withProgress(message = paste('Parse ', word_form, ": ", round((match(word_form, corpus_words)-1)/length(corpus_words)*100, digits=2), '%'), value = 0, {
+      URL <- paste(morpheusURL, word_form, langurl, sep = "")
+
+      URLcontent <- tryCatch({
+        getURLContent(URL)}, 
+        error = function(err)
+        {tryCatch({
+          Sys.sleep(0.1)
+          getURLContent(URL)},
           error = function(err)
-          {tryCatch({
-            Sys.sleep(0.1)
-            getURLContent(URL)},
-            error = function(err)
-            {incProgress(0.1, detail = "Return original form")
-              return(word_form)
-            })
+          {incProgress(0.1, detail = "Return original form")
+            return(word_form)
           })
-        if (URLcontent == "ServerError") {
+        })
+      if (URLcontent == "ServerError") {
+        lemma <- x
+        incProgress(0.1, detail = "Return original form")
+        return(lemma)}
+      else {
+        lemma <- if (is.null(XMLpassage2(URLcontent)) == TRUE) {
+          lemma <- x
+          incProgress(0.1, detail = "Return original form")
+          return(lemma)}
+        else {lemma <- tryCatch({XMLpassage2(URLcontent)},
+                                error = function(err) {
+                                  incProgress(0.1, detail = "Return original form")
+                                  lemma <- x
+                                  return(lemma)})
+        
+        lemma <- gsub("[0-9]", "", lemma)
+        lemma <- tolower(lemma)
+        lemma <- unique(lemma)
+        if (nchar(lemma) == 0) {
           lemma <- x
           incProgress(0.1, detail = "Return original form")
           return(lemma)}
         else {
-          lemma <- if (is.null(XMLpassage2(URLcontent)) == TRUE) {
-            lemma <- x
-            incProgress(0.1, detail = "Return original form")
-            return(lemma)}
-          else {lemma <- tryCatch({XMLpassage2(URLcontent)},
-                                  error = function(err) {
-                                    incProgress(0.1, detail = "Return original form")
-                                    lemma <- x
-                                    return(lemma)})
-          
-          lemma <- gsub("[0-9]", "", lemma)
-          lemma <- tolower(lemma)
-          lemma <- unique(lemma)
-          if (nchar(lemma) == 0) {
-            lemma <- x
-            incProgress(0.1, detail = "Return original form")
-            return(lemma)}
-          else {
-            incProgress(0.1, detail = paste(x, " is ", lemma))
-            return(lemma)
-          }
-          }
-        }})
+          incProgress(0.1, detail = paste(x, " is ", lemma))
+          return(lemma)
+        }
+        }
+      }})
     }
     
     inFile <- input$morph_corpus
@@ -822,10 +688,10 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      corpus <- readRDS(inFile)
+      corpus <- readRDS(inFile$datapath)
     })
     
-    research_corpus <- corpus$text
+    research_corpus <- corpus[,2]
     research_corpus <- factor(research_corpus)
     identifier <- corpus[,1]
     identifier <- factor(identifier)
@@ -928,31 +794,18 @@ server <- function(input, output, session) {
   })
   
 ##### 2.3. Output LDAvis #######
-  output$VISUI <- renderUI({
-    ServerTM <- list.files(path = "./www", pattern = "index.html", recursive = TRUE, full.names = TRUE)
-    ServerTM <- gsub("./www", "", ServerTM, fixed = TRUE)
-    selectInput("TModel", label = "Choose TM", choices = ServerTM)
-  })
   
   output$topicmodels <- renderUI({
     getPage<-function() {
-      return(tags$iframe(src = input$TModel
+      return(tags$iframe(src = "./temp_vis/index.html"
                          , style="width:150%;",  frameborder="0"
                          ,id="iframe"
                          , height = "800px"))
     }
     getPage()})
   
-##### 2.4. Stopwords #######
-  output$SWCorpusUI <- renderUI({
-    ServerCorpora <- list.files(path = "./www/data", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
-    ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
-    names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
-    selectInput("sw_corpus", label = "Choose RDS file", choices = ServerCorpora)
-  })
   
+##### 2.4. Stopwords #######
   output$stopwords <- renderDataTable({
     if (input$stopwordgo == 0)
       return()
@@ -962,10 +815,10 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      research_corpus <- readRDS(inFile)
+      research_corpus <- readRDS(inFile$datapath)
     })
-    identifier <- as.character(research_corpus$identifier)
-    stopword_corpus <- as.character(research_corpus$text)
+    identifier <- as.character(research_corpus[1,1])
+    stopword_corpus <- as.character(research_corpus[,2])
     stopword_corpus <- gsub("[[:punct:]]", " ", stopword_corpus)  # replace punctuation with space
     stopword_corpus <- gsub("[[:cntrl:]]", " ", stopword_corpus)  # replace control characters with space
     stopword_corpus <- gsub("^[[:space:]]+", "", stopword_corpus) # remove whitespace at beginning of documents
@@ -1003,21 +856,7 @@ server <- function(input, output, session) {
     
     data.frame(Index = c(1:length(stop_words)), Word = stop_words)
   })
-  
 ##### 2.5. Processing TM #######
-  output$ProcessTM <- renderUI({
-    ServerTM <- list.files(path = "./www", pattern = ".rds", recursive = TRUE, full.names = TRUE)
-    ServerTM <- ServerTM[which(grepl("Stopword", ServerTM) == FALSE)]
-    names(ServerTM) <- sapply(strsplit(ServerTM, "/"), function(x) {x[length(x)]})
-    selectInput("tm_corpus", label = "Choose Corpus", choices = ServerTM)
-  })
-  
-  output$ProcessSW <- renderUI({
-    ServerSW <- list.files(path = "./www", pattern = ".rds", recursive = TRUE, full.names = TRUE)
-    ServerSW <- ServerSW[which(grepl("Stopword", ServerSW) == TRUE)]
-    names(ServerSW) <- sapply(strsplit(ServerSW, "/"), function(x) {x[length(x)]})
-    selectInput("stopwordlist", label = "Choose SW List", choices = ServerSW)
-  })
   
   output$topicmodelling <- renderDataTable({
     if (input$TMgo == 0)
@@ -1028,7 +867,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      research_corpus <- readRDS(inFile)
+      research_corpus <- readRDS(inFile$datapath)
     })
     
     inFile <- input$stopwordlist
@@ -1036,11 +875,11 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      stop_words <- readRDS(inFile)
+      stop_words <- readRDS(inFile$datapath)
     })
     
-    output_names <- as.character(research_corpus$identifier)
-    research_corpus <- as.character(research_corpus$text)
+    output_names <- as.character(research_corpus[,1])
+    research_corpus <- as.character(research_corpus[,2])
     research_corpus <- gsub("^[[:space:]]+", "", research_corpus) # remove whitespace at beginning of documents
     research_corpus <- gsub("[[:space:]]+$", "", research_corpus) # remove whitespace at end of documents
     research_corpus <- gsub("[[:space:]]+", " ", research_corpus) # remove multiple whitespace
@@ -1085,8 +924,7 @@ server <- function(input, output, session) {
     term.frequency <- as.integer(term.table)  # frequencies of terms in the corpus [8939, 5544, 2411, 2410, 2143, ...]
     
     # Fit the model:
-    seed <- 73
-    set.seed(seed)
+    set.seed(73)
     K <- input$number_topics
     iterations <- input$iterations
     alpha <- input$alpha
@@ -1118,121 +956,72 @@ server <- function(input, output, session) {
     #Visualise and save
     inFile <- input$tm_corpus
     withProgress(message = 'Reading Texts', value = 0, {
-      research_corpus <- readRDS(inFile)
+      research_corpus <- readRDS(inFile$datapath)
     })
     
-    folder <- inFile
-    folder <- unlist(strsplit(folder, "/", fixed = TRUE))
-    folder <- paste(folder[1:length(folder)-1], sep = "", collapse = "/")
-    sw <- input$stopwordlist
-    sw <- unlist(strsplit(unlist(strsplit(sw, "-", fixed = TRUE))[2], "Stop"))[1]
-    folder <- paste(folder, "_", sw, "_K", K, "_alph", gsub(".", "", alpha, fixed = TRUE), "_eta", gsub(".", "", eta, fixed = TRUE), "_I", iterations, "_S", seed, sep = "")
-    dir.create(paste(folder, "_tab", sep = ""), recursive = TRUE)
-    visfolder <- paste(folder, "_vis", sep = "")
-    dir.create(visfolder, recursive = TRUE)
-    ldafolder <- paste(folder, "_mod", sep = "")
-    dir.create(ldafolder, recursive = TRUE)
-    serVis(json, out.dir = visfolder, open.browser = FALSE)
+    serVis(json, out.dir = 'www/temp_vis', open.browser = FALSE)
     
     withProgress(message = 'Generating Tables', value = 0, {
-      # Tables
+    # Tables
+    
+    ## reorder phi and theta according to JSON file
+    
+    new.order <- RJSONIO::fromJSON(json)$topic.order 
+    phi <- phi[new.order,]
+    theta <- theta[,new.order]
+    
+    ## generate topicnames
+    
+    phi.t <- t(phi)
+    topicnames <- vector(mode="character", length=K)
+    for (i in 1:K){
+      topicnames[i] <- paste(rownames(head(phi.t[order(phi.t[,i],decreasing=TRUE),], n=7)), sep="", collapse="_")
       
-      ## reorder phi and theta according to JSON file
-      
-      new.order <- RJSONIO::fromJSON(json)$topic.order 
-      phi <- phi[new.order,]
-      theta <- theta[,new.order]
-      
-      ## generate topicnames
-      
-      phi.t <- t(phi)
-      topicnames <- vector(mode="character", length=K)
-      for (i in 1:K){
-        topicnames[i] <- paste(rownames(head(phi.t[order(phi.t[,i],decreasing=TRUE),], n=7)), sep="", collapse="_")
-        
-      }
-      
-      #phi-table
-      phi_folder <- paste(folder, "_tab/phi.rds", sep = "")
-      phi_CSVfolder <- paste(folder, "_tab/phi.csv", sep = "")
-      theta_folder <- paste(folder, "_tab/theta.rds", sep = "")
-      theta_CSVfolder <- paste(folder, "_tab/theta.csv", sep = "")
-      lda_folder <- paste(folder, "_mod/lda.rds", sep = "")
-      rownames(phi) <- topicnames
-      phi <- t(phi)
-      saveRDS(phi, file = phi_folder)
-      write.csv(phi, file = phi_CSVfolder)
-      
-      #theta-table
-      theta <- cbind(output_names, as.character(research_corpus$text), theta) 
-      colnames(theta) <- c("identifier", "text", topicnames)
-      saveRDS(theta, file = theta_folder)
-      saveRDS(fit, file = lda_folder)
-      write.csv(theta, file = theta_CSVfolder)
+    }
+    
+    #phi-table
+    rownames(phi) <- topicnames
+    phi <- t(phi)
+    saveRDS(phi, file = "./www/temp_tab/phi.rds")
+    write.csv(phi, file = "./www/temp_tab/phi.csv")
+    
+    #theta-table
+    theta <- cbind(output_names, as.character(research_corpus[,2]), theta) 
+    colnames(theta) <- c("identifier", "text", topicnames)
+    saveRDS(theta, file = "./www/temp_tab/theta.rds")
+    write.csv(theta, file = "./www/temp_tab/theta.csv")
     })
     
     research_corpus
-    
+
   })
-  
-##### 2.6. Output Tables #######
-##### 2.6.1. Output Theta Table #######
-  output$thetaUI <- renderUI({
-    ServerTheta <- list.files(path = "./www", pattern = "theta.csv", recursive = TRUE, full.names = TRUE)
-    names(ServerTheta) <- sapply(strsplit(ServerTheta, "/"), function(x) {x[length(x)-1]})
-    selectInput("ThetaTable", label = "Choose TM", choices = ServerTheta)
-    })
+##### 2.5. Output Tables #######
+##### 2.5.1. Output Theta Table #######
   
   output$theta <- renderDataTable({
-    inFile <- input$ThetaTable
-    
-    if (is.null(inFile))
-      return(NULL)
-    
     withProgress(message = 'Reading Texts', value = 0, {
-      read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
-      })
+      read.csv("./www/temp_tab/theta.csv", header = TRUE, sep = ",", quote = "\"")
     })
+  })
+##### 2.5.2. Output Phi Table #######
   
-##### 2.6.2. Output Phi Table #######
-
-  output$phiUI <- renderUI({
-    ServerPhi <- list.files(path = "./www", pattern = "phi.csv", recursive = TRUE, full.names = TRUE)
-    names(ServerPhi) <- sapply(strsplit(ServerPhi, "/"), function(x) {x[length(x)-1]})
-    selectInput("PhiTable", label = "Choose TM", choices = ServerPhi)
-    })
-
   output$phi <- renderDataTable({
-    inFile <- input$PhiTable
-    
-    if (is.null(inFile))
-      return(NULL)
-    
     withProgress(message = 'Reading Texts', value = 0, {
-      read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
-      })
+      read.csv("./www/temp_tab/phi.csv", header = TRUE, sep = ",", quote = "\"")
     })
-  
+  })
 ##### 2.6. Downloads #####
 ##### 2.6.1. Corpus #####
-  output$dlcorpusUI <- renderUI({
-    ServerCorpus <- list.files(path = "./www", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
-    ServerCorpus <- ServerCorpus[which(grepl("Stopword", ServerCorpus) == FALSE)]
-    ServerCorpus <- ServerCorpus[which(grepl("theta.rds", ServerCorpus, fixed = TRUE) == FALSE)]
-    ServerCorpus <- ServerCorpus[which(grepl("phi.rds", ServerCorpus, fixed = TRUE) == FALSE)]
-    names(ServerCorpus) <- sapply(strsplit(ServerCorpus, "/"), function(x) {x[length(x)]})
-    selectInput("download_corpus", label = "Corpus", choices = ServerCorpus)
-  })
-  
   output$download_corpus <- renderDataTable({
     if (input$CorpusDownloadGo == 0)
       return()
     file_name <- input$download_corpus
+    file_name <- paste("./www/", file_name, sep = "")
     withProgress(message = 'Reading Texts', value = 0, {
       research_corpus <- readRDS(file_name)
     })
-    identifier <- as.character(research_corpus$identifier)
-    passage <- as.character(research_corpus$text)
+    identifier <- as.character(research_corpus[,1])
+    passage <- as.character(research_corpus[,2])
     index <- c(1:length(identifier))
     download_corpus <- data.frame(identifier, passage, index)
     PrevUrn <- vector()
@@ -1248,118 +1037,17 @@ server <- function(input, output, session) {
         NextUrn[i] <- identifier[which(index == i+1)]}
     }
     
-    download_corpus <- data.frame(identifier, PrevUrn, index, NextUrn, passage)
-    colnames(download_corpus) <- c("Urn", "PrevUrn", "SequenceIndex", "NextUrn", "TextContent")
-    download_corpus
-  })
-  
-  output$downloadCorpus <- downloadHandler(
-    filename = function() {
-      paste("test", "82xf", sep = ".")
-    },
-    content = function(file) {
-    file_name <- input$download_corpus
-    withProgress(message = 'Reading Texts', value = 0, {
-      research_corpus <- readRDS(file_name)
-    })
-    identifier <- as.character(research_corpus$identifier)
-    passage <- as.character(research_corpus$text)
-    index <- c(1:length(identifier))
-    download_corpus <- data.frame(identifier, passage, index)
-    PrevUrn <- vector()
-    NextUrn <- vector()
-    for (i in 1:length(index)) {
-      if(i-1 == 0) {
-        PrevUrn[i] <- "NULL"
-      } else {
-        PrevUrn[i] <- identifier[which(index == i-1)]}
-      if(i+1 > length(identifier)) {
-        NextUrn[i] <- "NULL"
-      } else {
-        NextUrn[i] <- identifier[which(index == i+1)]}
-    }
     download_corpus <- data.frame(identifier, PrevUrn, index, NextUrn, passage)
     colnames(download_corpus) <- c("Urn", "PrevUrn", "SequenceIndex", "NextUrn", "TextContent")
     file_name <- unlist(strsplit(file_name, "/", fixed = TRUE))[3]
     file_name <- unlist(strsplit(file_name, ".", fixed = TRUE))[c(1,2)]
     file_name <- paste(file_name, sep = "", collapse = ".")
     file_name <- paste("./www/", file_name, ".82xf", sep = "")
-    write.table(download_corpus, file, quote = TRUE, sep = "#", row.names = FALSE)
+    write.table(download_corpus, file_name, quote = FALSE, sep = "#", row.names = FALSE)
+    download_corpus
   })
-
-##### 2.6.2. Phi-Tables #####
-  
-  output$dlphiUI <- renderUI({
-    ServerPhi <- list.files(path = "./www", pattern = "phi.csv", recursive = TRUE, full.names = TRUE)
-    names(ServerPhi) <- sapply(strsplit(ServerPhi, "/"), function(x) {x[length(x)-1]})
-    selectInput("ThetaPhiDL", label = "Choose TM", choices = ServerPhi)
-  })
-  
-  output$prevphi <- renderDataTable({
-    inFile <- input$ThetaPhiDL
-    
-    if (is.null(inFile))
-      return(NULL)
-    
-    withProgress(message = 'Reading Texts', value = 0, {
-      read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
-    })
-  })
-  
-  output$downloadphi <- downloadHandler(
-    filename = function() {
-      paste("test", "csv", sep = ".")
-    },
-    content = function(file) {
-      inFile <- input$ThetaPhiDL
-      
-      if (is.null(inFile))
-        return(NULL)
-      downloadphi <- withProgress(message = 'Reading Texts', value = 0, {
-        read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
-      })
-      write.table(downloadphi, file, quote = TRUE, sep = ",", row.names = FALSE)
-    }
-  )
-
-##### 2.6.3. Theta-Tables #####
-  
-  output$dlthetaUI <- renderUI({
-    ServerTheta <- list.files(path = "./www", pattern = "theta.csv", recursive = TRUE, full.names = TRUE)
-    names(ServerTheta) <- sapply(strsplit(ServerTheta, "/"), function(x) {x[length(x)-1]})
-    selectInput("ThetaTableDL", label = "Choose TM", choices = ServerTheta)
-  })
-  
-  output$prevtheta <- renderDataTable({
-    inFile <- input$ThetaTableDL
-    
-    if (is.null(inFile))
-      return(NULL)
-    
-    withProgress(message = 'Reading Texts', value = 0, {
-      read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
-    })
-  })
-  
-  output$downloadtheta <- downloadHandler(
-    filename = function() {
-      paste("test", "csv", sep = ".")
-      },
-    content = function(file) {
-      inFile <- input$ThetaTableDL
-      
-      if (is.null(inFile))
-        return(NULL)
-      downloadtheta <- withProgress(message = 'Reading Texts', value = 0, {
-        read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
-      })
-      write.table(downloadtheta, file, quote = TRUE, sep = ",", row.names = FALSE)
-      }
-  )
-  
-##### 2.6.4. LDAvis Zip-file #####
-  
 }
+
 
 ##### 3. Start It Up #######
 
