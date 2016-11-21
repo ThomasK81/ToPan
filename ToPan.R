@@ -178,8 +178,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                  tabPanel("Morphology Service",
                           sidebarLayout(
                             sidebarPanel(
-                              fileInput('morph_corpus', 'Corpus selection',
-                                        accept=c('.rds')),
+                              uiOutput("MorphCorpusUI"),
                               radioButtons("morph_method", label = "Method", choices = c("Morpheus API", "Local StemDictionary", "Server StemDictionary")),
                               uiOutput("MorphUI"),
                               actionButton("Morphgo", "Submit")
@@ -192,7 +191,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                  tabPanel("Stop Words",
                           sidebarLayout(
                             sidebarPanel(
-                              fileInput('sw_corpus', 'SW Corpus', accept=c('.rds')),
+                              uiOutput("SWCorpusUI"),
                               sliderInput("stopnumber", label = "Number of Stopwords", min = 0, max = 400, value = 200),
                               textInput("add_stopwords", label = "Additional Stopwords", value = ""),
                               textInput("remove_stopwords", label = "Remove Words from Stopword list", value = ""),
@@ -401,6 +400,8 @@ server <- function(input, output, session) {
   output$RDSUI <- renderUI({
     ServerCorpora <- list.files(path = "./www/data", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
     ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
+    ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
+    ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
     names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
     selectInput("serverRDS", label = "Choose RDS file", choices = ServerCorpora)
     })
@@ -530,6 +531,15 @@ server <- function(input, output, session) {
   
 ##### 2.2. Processing Morphology #######
   
+  output$MorphCorpusUI <- renderUI({
+    ServerCorpora <- list.files(path = "./www/data", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
+    ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
+    ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
+    ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
+    names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
+    selectInput("morph_corpus", label = "Choose RDS file", choices = ServerCorpora)
+  })
+  
   output$MorphUI <- renderUI({
     if (input$morph_method == "Morpheus API") {
       return(selectInput("morphlang", label = "Choose Languages", choices = c("Latin", "Greek", "Arabic"))) 
@@ -580,7 +590,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      corpus <- readRDS(inFile$datapath)
+      corpus <- readRDS(inFile)
     })
     
     research_corpus <- corpus[,2]
@@ -670,7 +680,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      corpus <- readRDS(inFile$datapath)
+      corpus <- readRDS(inFile)
     })
     
     research_corpus <- corpus[,2]
@@ -804,7 +814,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      corpus <- readRDS(inFile$datapath)
+      corpus <- readRDS(inFile)
     })
     
     research_corpus <- corpus[,2]
@@ -926,6 +936,15 @@ server <- function(input, output, session) {
     getPage()})
   
 ##### 2.4. Stopwords #######
+  output$SWCorpusUI <- renderUI({
+    ServerCorpora <- list.files(path = "./www/data", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
+    ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
+    ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
+    ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
+    names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
+    selectInput("sw_corpus", label = "Choose RDS file", choices = ServerCorpora)
+  })
+  
   output$stopwords <- renderDataTable({
     if (input$stopwordgo == 0)
       return()
@@ -1185,10 +1204,10 @@ server <- function(input, output, session) {
 ##### 2.6. Downloads #####
 ##### 2.6.1. Corpus #####
   output$dlcorpusUI <- renderUI({
-    ServerCorpus <- list.files(path = "./www", pattern = ".rds", recursive = TRUE, full.names = TRUE)
+    ServerCorpus <- list.files(path = "./www", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
     ServerCorpus <- ServerCorpus[which(grepl("Stopword", ServerCorpus) == FALSE)]
-    ServerCorpus <- ServerCorpus[which(grepl("theta", ServerCorpus) == FALSE)]
-    ServerCorpus <- ServerCorpus[which(grepl("phi", ServerCorpus) == FALSE)]
+    ServerCorpus <- ServerCorpus[which(grepl("theta.rds", ServerCorpus, fixed = TRUE) == FALSE)]
+    ServerCorpus <- ServerCorpus[which(grepl("phi.rds", ServerCorpus, fixed = TRUE) == FALSE)]
     names(ServerCorpus) <- sapply(strsplit(ServerCorpus, "/"), function(x) {x[length(x)]})
     selectInput("download_corpus", label = "Corpus", choices = ServerCorpus)
   })
