@@ -2,7 +2,7 @@
 
 library(shiny)
 library(RCurl)
-library(XML) #also install XML2
+library(XML) # also install XML2!
 library(httr)
 library(lda)
 library(LDAvis)
@@ -80,7 +80,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
 ##### 1.0.1. Home #######
                  tabPanel("Home",
                           fluidRow(column(4, br(), div(img(src = "melete.png", height = "200"))),
-                                   column(8, includeMarkdown("home.md")))),                 
+                                   column(8, includeMarkdown("doc/about.md")))),                 
                  tabPanel("Instructions",
                           sidebarLayout(sidebarPanel(br(), h6("Instructions"),
                                                      actionLink("data_link", "1. Entering the Data"), br(),
@@ -137,7 +137,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                                         Semicolon=';',
                                                         Tab='\t'),
                                                       ','),
-                                         radioButtons('label', 'Label (has to be column 3)',
+                                         radioButtons('label', 'Label (must be column #3!)',
                                                       c(Yes=TRUE,
                                                         No=FALSE),
                                                       '"'),
@@ -278,7 +278,36 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
 server <- function(input, output, session) {
   
   options(shiny.maxRequestSize=30*1024^2)
-  
+
+##### 2.0.1 Home Viz #######
+
+  values <- reactiveValues(mdfile = "doc/preliminary_notes.md")
+
+  observeEvent(input$copyright_link, {
+    values$mdfile <- "COPYRIGHT.md"
+  })
+
+  observeEvent(input$data_link, {
+    values$mdfile <- "doc/entering_the_data.md"
+  })
+
+  observeEvent(input$morph_link, {
+    values$mdfile <- "doc/morphological_normalisation.md"
+  })
+
+  observeEvent(input$tm_link, {
+    values$mdfile <- "doc/setting_the_tm_values.md"
+  })
+
+  observeEvent(input$results_link, {
+    values$mdfile <- "doc/understanding_the_results.md"
+  })
+
+  output$markdownfile <- renderUI({
+    includeMarkdown(values$mdfile)
+  })
+
+
 ##### 2.1. Catalogues #######
 ##### 2.1.1. Output CTS API Corpus #######  
   output$CTSUI <- renderUI({
@@ -334,7 +363,7 @@ server <- function(input, output, session) {
     corpus.df <- data.frame(reffs, corpus)
     colnames(corpus.df) <- c("identifier", "text")
     write.csv(corpus.df, "./www/corpus.csv", row.names = FALSE)
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corpus.df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -391,7 +420,7 @@ server <- function(input, output, session) {
     corpus.df <- data.frame(reffs, corpus)
     colnames(corpus.df) <- c("identifier", "text")
     write.csv(corpus.df, "./www/corpus.csv", row.names = FALSE)
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corpus.df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -420,7 +449,7 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       CSVcatalogue <- readRDS(inFile)
     })
     CSVcatalogue
@@ -436,11 +465,15 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       CSVcatalogue <- fread(inFile$datapath, header = input$header, sep = input$sep)
     })
-    colnames(CSVcatalogue) <- c('identifier', 'text')
-    withProgress(message = 'Save Binary...', value = 0, {
+    # TODO: if (column('label')) { # Either false or true, don't know how to access that info! –jrs
+    colnames(CSVcatalogue) <- c('identifier', 'text', 'label')
+    # } else {
+    # colnames(CSVcatalogue) <- c('identifier', 'text')
+    # }
+    withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue$identifier), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -463,7 +496,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       data <- xmlParse(inFile$datapath)
       xml_data <- xmlToList(data)
       xml_data <- xml_data[5:(length(xml_data)-1)]
@@ -491,7 +524,7 @@ server <- function(input, output, session) {
       }
       corpus <- data.frame(as.character(identifier), as.character(corpus), as.character(parsedCorpus))
       names(corpus) <- c("identifier", "text", "parsed")
-      withProgress(message = 'Save Binary...', value = 0, {
+      withProgress(message = 'Saving binary...', value = 0, {
         file_name <- unlist(strsplit(as.character(corpus[1,1]), ":", fixed = TRUE))[4]
         foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
         foldername <- paste("./www/data", foldername, sep = "/")
@@ -521,12 +554,12 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       CSVcatalogue <- fread(inFile$datapath, header = TRUE, sep = "#")
     })
     CSVcatalogue <- data.frame(CSVcatalogue$identifier, CSVcatalogue$passage)
     colnames(CSVcatalogue) <- c('identifier', 'text')
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -576,7 +609,7 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       stem_dictionary <- readRDS(inFile$datapath)
     })
     
@@ -597,7 +630,7 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       corpus <- readRDS(inFile)
     })
     
@@ -648,7 +681,7 @@ server <- function(input, output, session) {
     corrected_corpus_df <- data.frame(identifier, research_corpus)
     colnames(corrected_corpus_df) <- c('identifier', 'text')
     
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -666,7 +699,7 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       stem_dictionary <- readRDS(inFile$datapath)
     })
     
@@ -687,7 +720,7 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       corpus <- readRDS(inFile)
     })
     
@@ -738,7 +771,7 @@ server <- function(input, output, session) {
     corrected_corpus_df <- data.frame(identifier, research_corpus)
     colnames(corrected_corpus_df) <- c('identifier', 'text')
     
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -821,7 +854,7 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       corpus <- readRDS(inFile)
     })
     
@@ -911,7 +944,7 @@ server <- function(input, output, session) {
     corrected_corpus_df <- data.frame(identifier, research_corpus)
     colnames(corrected_corpus_df) <- c('identifier', 'text')
     
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -961,7 +994,7 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       research_corpus <- readRDS(inFile)
     })
     identifier <- as.character(research_corpus$identifier)
@@ -992,7 +1025,7 @@ server <- function(input, output, session) {
     less <- gsub("[[:space:]]+$", "", less) # remove whitespace at end of documents
     stop_words <- stop_words [! stop_words %in% less]
     
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving binary...', value = 0, {
       file_name <- as.character(unlist(strsplit(identifier, ":", fixed = TRUE))[4])
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -1027,7 +1060,7 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       research_corpus <- readRDS(inFile)
     })
     
@@ -1035,7 +1068,7 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       stop_words <- readRDS(inFile)
     })
     
@@ -1117,7 +1150,7 @@ server <- function(input, output, session) {
     
     #Visualise and save
     inFile <- input$tm_corpus
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       research_corpus <- readRDS(inFile)
     })
     
@@ -1189,7 +1222,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
       })
     })
@@ -1208,7 +1241,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
       })
     })
@@ -1228,7 +1261,7 @@ server <- function(input, output, session) {
     if (input$CorpusDownloadGo == 0)
       return()
     file_name <- input$download_corpus
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       research_corpus <- readRDS(file_name)
     })
     identifier <- as.character(research_corpus$identifier)
@@ -1259,7 +1292,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
     file_name <- input$download_corpus
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       research_corpus <- readRDS(file_name)
     })
     identifier <- as.character(research_corpus$identifier)
@@ -1301,7 +1334,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
     })
   })
@@ -1315,7 +1348,7 @@ server <- function(input, output, session) {
       
       if (is.null(inFile))
         return(NULL)
-      downloadphi <- withProgress(message = 'Reading Texts', value = 0, {
+      downloadphi <- withProgress(message = 'Reading texts', value = 0, {
         read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
       })
       write.table(downloadphi, file, quote = TRUE, sep = ",", row.names = FALSE)
@@ -1336,7 +1369,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading texts', value = 0, {
       read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
     })
   })
@@ -1350,7 +1383,7 @@ server <- function(input, output, session) {
       
       if (is.null(inFile))
         return(NULL)
-      downloadtheta <- withProgress(message = 'Reading Texts', value = 0, {
+      downloadtheta <- withProgress(message = 'Reading texts', value = 0, {
         read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
       })
       write.table(downloadtheta, file, quote = TRUE, sep = ",", row.names = FALSE)

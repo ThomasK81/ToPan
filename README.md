@@ -13,7 +13,7 @@ ToPān is also still under active development. This is an alpha release. More fe
 In order to try or install ToPān, you'll need a number of libraries. Provided the necessary operating system dependencies are already installed, the following command will take care of the R dependencies. You can run it in R or in RStudio:
 
 ```R
-for (package in c("shiny", "LDAvis", "XML", "xml2", "RCurl", "httr", "lda", "servr", "markdown")) {
+for (package in c('shiny', 'LDAvis', 'XML', 'xml2', 'RCurl', 'httr', 'lda', 'servr', 'markdown', 'data.table')) {
   install.packages(package)
 }
 ```
