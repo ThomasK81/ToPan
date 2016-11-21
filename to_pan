@@ -1,4 +1,4 @@
 #!/usr/bin/env Rscript
 
 library(shiny)
-runApp('.', port=3737)
+runApp('.', port=3838) # Shiny default port
