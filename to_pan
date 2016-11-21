@@ -1,4 +1,3 @@
-#!/usr/bin/env Rscript
+#!/bin/bash
 
-library(shiny)
-runApp('.', port=3838) # Shiny default port
+Rscript -e "library(shiny);runApp('.', port=3838)" # Shiny default port
