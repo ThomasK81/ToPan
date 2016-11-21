@@ -8,11 +8,7 @@ library(lda)
 library(LDAvis)
 library(data.table)
 
-##### 0.2. Globals #######
-
-CTS.Rep <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
-
-##### 0.3. Functions #######
+##### 0.2. Functions #######
 
 FetchCTSRep <- function(x) {
   xmlfile <- xmlTreeParse(x)
@@ -258,6 +254,14 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                          downloadButton('downloadCorpus', 'Download')
                                        ),
                                        mainPanel(dataTableOutput("download_corpus")))),
+                            tabPanel("Phi-Table",
+                                     sidebarLayout(
+                                       sidebarPanel(
+                                         "INPUT SELECTION",
+                                         uiOutput("dlphiUI"),
+                                         downloadButton('downloadphi', 'Download')
+                                       ),
+                                       mainPanel(dataTableOutput("prevphi")))),
                             tabPanel("Theta-Table",
                                      sidebarLayout(
                                        sidebarPanel(
@@ -278,8 +282,10 @@ server <- function(input, output, session) {
 ##### 2.1. Catalogues #######
 ##### 2.1.1. Output CTS API Corpus #######  
   output$CTSUI <- renderUI({
-    # urns <- FetchCTSRep(CTS.Rep)
-    urns <- c("test1", "test2")
+    CTS.Rep <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
+    withProgress(message = 'Fetching URNs form server...', value = 0, {
+      urns <- FetchCTSRep(CTS.Rep)
+    })
     selectInput("cts_urn", label = "CTS URN", choices = urns)
     })
   
@@ -497,6 +503,8 @@ server <- function(input, output, session) {
         foldername <- paste("./www/data", foldername, sep = "/")
         dir.create(foldername, recursive = TRUE)
         file_name <- paste(foldername, "/", file_name, "TreebankParsed.rds", sep = "")
+        corpus <- corpus[,c(1,3)]
+        names(corpus) <- c("identifier", "text")
         saveRDS(corpus[,c(1,3)], file_name)
         corpus[,c(1,2)]
       })
@@ -593,7 +601,7 @@ server <- function(input, output, session) {
       corpus <- readRDS(inFile)
     })
     
-    research_corpus <- corpus[,2]
+    research_corpus <- corpus$text
     research_corpus <- as.character(research_corpus)
     identifier <- corpus[,1]
     identifier <- as.character(identifier)
@@ -683,7 +691,7 @@ server <- function(input, output, session) {
       corpus <- readRDS(inFile)
     })
     
-    research_corpus <- corpus[,2]
+    research_corpus <- corpus$text
     research_corpus <- as.character(research_corpus)
     identifier <- corpus[,1]
     identifier <- as.character(identifier)
@@ -817,7 +825,7 @@ server <- function(input, output, session) {
       corpus <- readRDS(inFile)
     })
     
-    research_corpus <- corpus[,2]
+    research_corpus <- corpus$text
     research_corpus <- factor(research_corpus)
     identifier <- corpus[,1]
     identifier <- factor(identifier)
@@ -956,8 +964,8 @@ server <- function(input, output, session) {
     withProgress(message = 'Reading Texts', value = 0, {
       research_corpus <- readRDS(inFile)
     })
-    identifier <- as.character(research_corpus[1,1])
-    stopword_corpus <- as.character(research_corpus[,2])
+    identifier <- as.character(research_corpus$identifier)
+    stopword_corpus <- as.character(research_corpus$text)
     stopword_corpus <- gsub("[[:punct:]]", " ", stopword_corpus)  # replace punctuation with space
     stopword_corpus <- gsub("[[:cntrl:]]", " ", stopword_corpus)  # replace control characters with space
     stopword_corpus <- gsub("^[[:space:]]+", "", stopword_corpus) # remove whitespace at beginning of documents
@@ -1031,8 +1039,8 @@ server <- function(input, output, session) {
       stop_words <- readRDS(inFile)
     })
     
-    output_names <- as.character(research_corpus[,1])
-    research_corpus <- as.character(research_corpus[,2])
+    output_names <- as.character(research_corpus$identifier)
+    research_corpus <- as.character(research_corpus$text)
     research_corpus <- gsub("^[[:space:]]+", "", research_corpus) # remove whitespace at beginning of documents
     research_corpus <- gsub("[[:space:]]+$", "", research_corpus) # remove whitespace at end of documents
     research_corpus <- gsub("[[:space:]]+", " ", research_corpus) # remove multiple whitespace
@@ -1122,6 +1130,8 @@ server <- function(input, output, session) {
     dir.create(paste(folder, "_tab", sep = ""), recursive = TRUE)
     visfolder <- paste(folder, "_vis", sep = "")
     dir.create(visfolder, recursive = TRUE)
+    ldafolder <- paste(folder, "_mod", sep = "")
+    dir.create(ldafolder, recursive = TRUE)
     serVis(json, out.dir = visfolder, open.browser = FALSE)
     
     withProgress(message = 'Generating Tables', value = 0, {
@@ -1147,15 +1157,17 @@ server <- function(input, output, session) {
       phi_CSVfolder <- paste(folder, "_tab/phi.csv", sep = "")
       theta_folder <- paste(folder, "_tab/theta.rds", sep = "")
       theta_CSVfolder <- paste(folder, "_tab/theta.csv", sep = "")
+      lda_folder <- paste(folder, "_mod/lda.rds", sep = "")
       rownames(phi) <- topicnames
       phi <- t(phi)
       saveRDS(phi, file = phi_folder)
       write.csv(phi, file = phi_CSVfolder)
       
       #theta-table
-      theta <- cbind(output_names, as.character(research_corpus[,2]), theta) 
+      theta <- cbind(output_names, as.character(research_corpus$text), theta) 
       colnames(theta) <- c("identifier", "text", topicnames)
       saveRDS(theta, file = theta_folder)
+      saveRDS(fit, file = lda_folder)
       write.csv(theta, file = theta_CSVfolder)
     })
     
@@ -1219,8 +1231,8 @@ server <- function(input, output, session) {
     withProgress(message = 'Reading Texts', value = 0, {
       research_corpus <- readRDS(file_name)
     })
-    identifier <- as.character(research_corpus[,1])
-    passage <- as.character(research_corpus[,2])
+    identifier <- as.character(research_corpus$identifier)
+    passage <- as.character(research_corpus$text)
     index <- c(1:length(identifier))
     download_corpus <- data.frame(identifier, passage, index)
     PrevUrn <- vector()
@@ -1250,8 +1262,8 @@ server <- function(input, output, session) {
     withProgress(message = 'Reading Texts', value = 0, {
       research_corpus <- readRDS(file_name)
     })
-    identifier <- as.character(research_corpus[,1])
-    passage <- as.character(research_corpus[,2])
+    identifier <- as.character(research_corpus$identifier)
+    passage <- as.character(research_corpus$text)
     index <- c(1:length(identifier))
     download_corpus <- data.frame(identifier, passage, index)
     PrevUrn <- vector()
@@ -1276,6 +1288,39 @@ server <- function(input, output, session) {
   })
 
 ##### 2.6.2. Phi-Tables #####
+  
+  output$dlphiUI <- renderUI({
+    ServerPhi <- list.files(path = "./www", pattern = "phi.csv", recursive = TRUE, full.names = TRUE)
+    names(ServerPhi) <- sapply(strsplit(ServerPhi, "/"), function(x) {x[length(x)-1]})
+    selectInput("ThetaPhiDL", label = "Choose TM", choices = ServerPhi)
+  })
+  
+  output$prevphi <- renderDataTable({
+    inFile <- input$ThetaPhiDL
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+    withProgress(message = 'Reading Texts', value = 0, {
+      read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
+    })
+  })
+  
+  output$downloadphi <- downloadHandler(
+    filename = function() {
+      paste("test", "csv", sep = ".")
+    },
+    content = function(file) {
+      inFile <- input$ThetaPhiDL
+      
+      if (is.null(inFile))
+        return(NULL)
+      downloadphi <- withProgress(message = 'Reading Texts', value = 0, {
+        read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
+      })
+      write.table(downloadphi, file, quote = TRUE, sep = ",", row.names = FALSE)
+    }
+  )
 
 ##### 2.6.3. Theta-Tables #####
   
