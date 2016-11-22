@@ -1,7 +1,9 @@
 ##### 0.1, Libraries #######
 
 if (! require('pacman')) install.packages('pacman', repos = 'http://cran.rstudio.com/')
-pacman::p_load('shiny', 'methods', 'LDAvis', 'XML', 'xml2', 'RCurl', 'httr', 'lda', 'servr', 'markdown', 'data.table')
+pacman::p_load('shiny', 'methods', 'LDAvis', 'XML', 'xml2', 'RCurl', 'httr', 'lda', 'servr', 'markdown', 'data.table', 'stringr')
+
+source(file='lib/dot_list_files.R') # Not (yet?) available through a repository.
 
 ##### 0.2. Functions #######
 
@@ -122,7 +124,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                             tabPanel("CSV",
                                      sidebarLayout(
                                        sidebarPanel(
-                                         fileInput('file1', 'Choose CSV File',
+                                         fileInput('file1', 'Choose CSV file',
                                                    accept=c('text/csv', 
                                                             'text/comma-separated-values,text/plain', 
                                                             '.csv')),
@@ -145,7 +147,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                             tabPanel("TreeBank XML",
                                      sidebarLayout(
                                        sidebarPanel(
-                                         fileInput('file2', 'Choose TreeBank XML File',
+                                         fileInput('file2', 'Choose TreeBank XML file',
                                                    accept=c('.xml')),
                                          actionButton("Treebankgo", "Submit")
                                        ),
@@ -156,7 +158,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                             tabPanel("82XF",
                                      sidebarLayout(
                                        sidebarPanel(
-                                         fileInput('file3', 'Choose 82XF File',
+                                         fileInput('file3', 'Choose 82XF file',
                                                    accept=c('.82XF', '.82xf')),
                                          actionButton("XFgo", "Submit")
                                        ),
@@ -170,7 +172,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                           sidebarLayout(
                             sidebarPanel(
                               uiOutput("MorphCorpusUI"),
-                              radioButtons("morph_method", label = "Method", choices = c("Morpheus API", "Local StemDictionary", "Server StemDictionary")),
+                              radioButtons("morph_method", label = "Method", choices = c("Morpheus API", "Local stem dictionary", "Server stem dictionary")),
                               uiOutput("MorphUI"),
                               actionButton("Morphgo", "Submit")
                             ),
@@ -183,9 +185,9 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                           sidebarLayout(
                             sidebarPanel(
                               uiOutput("SWCorpusUI"),
-                              sliderInput("stopnumber", label = "Number of Stopwords", min = 0, max = 400, value = 200),
-                              textInput("add_stopwords", label = "Additional Stopwords", value = ""),
-                              textInput("remove_stopwords", label = "Remove Words from Stopword list", value = ""),
+                              sliderInput("stopnumber", label = "Number of stopwords", min = 0, max = 400, value = 200),
+                              textInput("add_stopwords", label = "Additional stopwords", value = ""),
+                              textInput("remove_stopwords", label = "Remove words from stopword list", value = ""),
                               actionButton("stopwordgo", "Submit")
                             ),
                             mainPanel(
@@ -200,10 +202,10 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                               uiOutput("ProcessTM"),
                               uiOutput("ProcessSW"),
                               sliderInput("occurrence", label = "Occurrence threshold", min = 1, max = 5, value = 3),
-                              sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
+                              sliderInput("number_topics", label = "Number of topics", min = 2, max = 25, value = 15),
                               sliderInput("alpha", label = "Alpha", min = 0.00, max = 0.10, value = 0.02),
                               sliderInput("eta", label = "Eta", min = 0.00, max = 0.10, value = 0.02),
-                              sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
+                              sliderInput("number_terms", label = "Number of terms shown", min = 15, max = 50, value = 25),
                               sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
                               actionButton("TMgo", "Submit")
                             ),
@@ -229,13 +231,13 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                  ),
                  
 ##### 1.7. Explore #######
-                 
-                 navbarMenu("Explore",
-                            tabPanel("Topics over IDs", mainPanel()),
-                            tabPanel("Topics in Works", mainPanel()),
-                            tabPanel("Most similar", mainPanel()),
-                            tabPanel("Clusters", mainPanel())
-                 ),
+                 # TODO: Implement me! 
+                 #navbarMenu("Explore",
+                 #           tabPanel("Topics over IDs", mainPanel()),
+                 #           tabPanel("Topics in Works", mainPanel()),
+                 #           tabPanel("Most similar", mainPanel()),
+                 #           tabPanel("Clusters", mainPanel())
+                 #),
                  
 ##### 1.8. Downloads #######
                  
@@ -357,11 +359,11 @@ server <- function(input, output, session) {
     corpus <- unlist(lapply(reffs, fetch_passage))
     corpus.df <- data.frame(reffs, corpus)
     colnames(corpus.df) <- c("identifier", "text")
-    write.csv(corpus.df, "./www/corpus.csv", row.names = FALSE)
+    write.csv(corpus.df, "./www/data/uploads/corpus.csv", row.names = FALSE)
     withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corpus.df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
-      foldername <- paste("./www/data", foldername, sep = "/")
+      foldername <- paste("./www/data/corpora", foldername, sep = "/")
       dir.create(foldername, recursive = TRUE)
       file_name <- paste(foldername, "/", file_name, ".rds", sep = "")
       saveRDS(corpus.df, file_name)
@@ -414,11 +416,11 @@ server <- function(input, output, session) {
     corpus <- unlist(lapply(reffs, fetch_passage))
     corpus.df <- data.frame(reffs, corpus)
     colnames(corpus.df) <- c("identifier", "text")
-    write.csv(corpus.df, "./www/corpus.csv", row.names = FALSE)
+    write.csv(corpus.df, "./www/data/uploads/corpus.csv", row.names = FALSE)
     withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corpus.df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
-      foldername <- paste("./www/data", foldername, sep = "/")
+      foldername <- paste("./www/data/corpora", foldername, sep = "/")
       dir.create(foldername, recursive = TRUE)
       file_name <- paste(foldername, "/", file_name, ".rds", sep = "")
       saveRDS(corpus.df, file_name)
@@ -428,16 +430,13 @@ server <- function(input, output, session) {
   
 ##### 2.1.3. Output Server-Side RDS #######
   output$RDSUI <- renderUI({
-    ServerCorpora <- list.files(path = "./www/data", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
-    ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
+    ServerCorpora <- .list.files('www/data/corpora', '.*rds')
+    ServerCorpora <- ServerCorpora[which(grepl("(lda|phi|theta)\\.rds", ServerCorpora) == FALSE)]
     names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
-    selectInput("serverRDS", label = "Choose RDS file", choices = ServerCorpora)
-    })
+    selectInput("serverRDS", label = "Choose RDS corpus file", choices = ServerCorpora)
+  })
   
   output$catalogue3 <- renderDataTable({
-    
     if (input$RDSgo == 0)
       return()
     inFile <- input$serverRDS
@@ -465,7 +464,10 @@ server <- function(input, output, session) {
     })
 
     cols <- c('identifier', 'text')
-    # R has got to be the most clumsy programming language on the planet
+    # R has got to be the most clumsy programming language on the planet!
+    # If something does not exist, is it then not different from something
+    # that in contrast exists? I call upon the language's creators to read
+    # http://plato.stanford.edu/entries/truth-correspondence/.
     if (!is.null(input$label)) {if (input$label == TRUE) {
       cols = append(cols, 'label')
     }}
@@ -474,7 +476,7 @@ server <- function(input, output, session) {
     withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue$identifier), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
-      foldername <- paste("./www/data", foldername, sep = "/")
+      foldername <- paste("./www/data/corpora", foldername, sep = "/")
       dir.create(foldername, recursive = TRUE)
       file_name <- paste(foldername, "/", file_name, ".rds", sep = "")
       saveRDS(CSVcatalogue, file_name)
@@ -525,13 +527,13 @@ server <- function(input, output, session) {
       withProgress(message = 'Saving binary...', value = 0, {
         file_name <- unlist(strsplit(as.character(corpus[1,1]), ":", fixed = TRUE))[4]
         foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
-        foldername <- paste("./www/data", foldername, sep = "/")
+        foldername <- paste("./www/data/corpora", foldername, sep = "/")
         dir.create(foldername, recursive = TRUE)
         file_name <- paste(foldername, "/", file_name, "Treebank.rds", sep = "")
         saveRDS(corpus[,c(1,2)], file_name)
         file_name <- unlist(strsplit(as.character(corpus[1,1]), ":", fixed = TRUE))[4]
         foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
-        foldername <- paste("./www/data", foldername, sep = "/")
+        foldername <- paste("./www/data/corpora", foldername, sep = "/")
         dir.create(foldername, recursive = TRUE)
         file_name <- paste(foldername, "/", file_name, "TreebankParsed.rds", sep = "")
         corpus <- corpus[,c(1,3)]
@@ -560,7 +562,7 @@ server <- function(input, output, session) {
     withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
-      foldername <- paste("./www/data", foldername, sep = "/")
+      foldername <- paste("./www/data/corpora", foldername, sep = "/")
       dir.create(foldername, recursive = TRUE)
       file_name <- paste(foldername, "/", file_name, ".rds", sep = "")
       saveRDS(CSVcatalogue, file_name)
@@ -571,23 +573,22 @@ server <- function(input, output, session) {
 ##### 2.2. Processing Morphology #######
   
   output$MorphCorpusUI <- renderUI({
-    ServerCorpora <- list.files(path = "./www/data", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
-    ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
+    ServerCorpora <- .list.files('www/data/corpora', '.*rds')
+    ServerCorpora <- ServerCorpora[which(grepl("(lda|phi|theta)\\.rds", ServerCorpora) == FALSE)]
     names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
-    selectInput("morph_corpus", label = "Choose RDS file", choices = ServerCorpora)
+    selectInput("morph_corpus", label = "Choose RDS corpus file", choices = ServerCorpora)
   })
   
   output$MorphUI <- renderUI({
     if (input$morph_method == "Morpheus API") {
-      return(selectInput("morphlang", label = "Choose Languages", choices = c("Latin", "Greek", "Arabic"))) 
+      return(selectInput("morphlang", label = "Choose language", choices = c("Latin", "Greek", "Arabic"))) 
     }
-    if (input$morph_method == "Server StemDictionary") {
+    if (input$morph_method == "Server stem dictionary") {
       #### find filenames .rds
-      return(selectInput("stemdic", label = "Choose StemDictionary", choices = list.files(path = "./www", pattern = "StemDic*.rds", recursive = TRUE, full.names = TRUE)))
+      StemDictionaries <- .list.files('www/data/stemdics', '.*rds')
+      return(selectInput("stemdic", label = "Choose stem dictionary", StemDictionaries))
     }
-    fileInput('stemdic', 'Choose StemDictionary', accept=c('.rds'))
+    fileInput('stemdic', 'Choose stem dictionary', accept=c('.rds'))
   })
   
   morph <- reactive({
@@ -595,9 +596,9 @@ server <- function(input, output, session) {
       return()
     if (input$morph_method == "Morpheus API")
       return(morpheus())
-    if (input$morph_method == "Local StemDictionary")
+    if (input$morph_method == "Local stem dictionary")
       return(localStemDic())
-    if (input$morph_method == "Server StemDictionary")
+    if (input$morph_method == "Server stem dictionary")
       return(serverStemDic())
   })
   
@@ -620,7 +621,7 @@ server <- function(input, output, session) {
                                   character(1))
     stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
     colnames(stem_dictionary_CSV) <- c("form", "lemmata")
-    write.csv(stem_dictionary_CSV, file = "./www/stemdic.csv")
+    write.csv(stem_dictionary_CSV, file = "./www/data/stemdics/stemdic.csv")
     
     ## Read in corpus
     
@@ -682,7 +683,7 @@ server <- function(input, output, session) {
     withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
-      foldername <- paste("./www/data", foldername, sep = "/")
+      foldername <- paste("./www/data/stemdics", foldername, sep = "/")
       dir.create(foldername, recursive = TRUE)
       file_name <- paste(foldername, "/", file_name, "-LocStemDicParsed.rds", sep = "")
       saveRDS(corrected_corpus_df, file_name)
@@ -710,7 +711,7 @@ server <- function(input, output, session) {
                                   character(1))
     stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
     colnames(stem_dictionary_CSV) <- c("form", "lemmata")
-    write.csv(stem_dictionary_CSV, file = "./www/stemdic.csv")
+    write.csv(stem_dictionary_CSV, file = "./www/data/stemdics/stemdic.csv")
     
     ## Read in corpus
     
@@ -772,7 +773,7 @@ server <- function(input, output, session) {
     withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
-      foldername <- paste("./www/data", foldername, sep = "/")
+      foldername <- paste("./www/data/stemdics", foldername, sep = "/")
       dir.create(foldername, recursive = TRUE)
       file_name <- paste(foldername, "/", file_name, "-LocStemDicParsed.rds", sep = "")
       saveRDS(corrected_corpus_df, file_name)
@@ -887,7 +888,7 @@ server <- function(input, output, session) {
     ## stemming
     
     stem_dictionary <- sapply(corpus_words, parsing)
-    file_name <- paste("./www/", "StemDic", ".rds", sep = "")
+    file_name <- paste("./www/data/stemdics", "StemDic", ".rds", sep = "")
     saveRDS(stem_dictionary, file_name)
     ## Produce CSV Stem-Dictionary
     
@@ -898,7 +899,7 @@ server <- function(input, output, session) {
                                   character(1))
     stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
     colnames(stem_dictionary_CSV) <- c("form", "lemmata")
-    write.csv(stem_dictionary_CSV, file = "./www/stemdic.csv")
+    write.csv(stem_dictionary_CSV, file = "./www/data/stemdics/stemdic.csv")
     
     ### Normalise Corpus
     
@@ -945,7 +946,7 @@ server <- function(input, output, session) {
     withProgress(message = 'Saving binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
-      foldername <- paste("./www/data", foldername, sep = "/")
+      foldername <- paste("./www/data/corpora", foldername, sep = "/")
       dir.create(foldername, recursive = TRUE)
       file_name <- paste(foldername, "/", file_name, "-MorphAPIParsed.rds", sep = "")
       saveRDS(corrected_corpus_df, file_name)
@@ -960,28 +961,27 @@ server <- function(input, output, session) {
   
 ##### 2.3. Output LDAvis #######
   output$VISUI <- renderUI({
-    ServerTM <- list.files(path = "./www", pattern = "index.html", recursive = TRUE, full.names = TRUE)
-    ServerTM <- gsub("./www", "", ServerTM, fixed = TRUE)
-    selectInput("TModel", label = "Choose TM", choices = ServerTM)
+    ServerTM <- .list.files('www/data/corpora', 'index.html')
+    ServerTM <- gsub('www', '', ServerTM, fixed = TRUE)
+    selectInput("TModel", label = "Choose topic model", choices = ServerTM, width = 800)
   })
   
   output$topicmodels <- renderUI({
     getPage<-function() {
-      return(tags$iframe(src = input$TModel
-                         , style="width:150%;",  frameborder="0"
-                         ,id="iframe"
-                         , height = "800px"))
+      return(tags$iframe(src = input$TModel,
+                         style = "width:150%;", 
+                         frameborder="0",
+                         id     = "iframe",
+                         height = "800px"))
     }
     getPage()})
   
 ##### 2.4. Stopwords #######
   output$SWCorpusUI <- renderUI({
-    ServerCorpora <- list.files(path = "./www/data", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
-    ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
-    ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
+    ServerCorpora <- .list.files('www/data/corpora', '.*rds')
+    ServerCorpora <- ServerCorpora[which(grepl("(lda|phi|theta)\\.rds", ServerCorpora) == FALSE)]
     names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
-    selectInput("sw_corpus", label = "Choose RDS file", choices = ServerCorpora)
+    selectInput("sw_corpus", label = "Choose RDS corpus file", choices = ServerCorpora)
   })
   
   output$stopwords <- renderDataTable({
@@ -1026,7 +1026,7 @@ server <- function(input, output, session) {
     withProgress(message = 'Saving binary...', value = 0, {
       file_name <- as.character(unlist(strsplit(identifier, ":", fixed = TRUE))[4])
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
-      foldername <- paste("./www/data", foldername, sep = "/")
+      foldername <- paste("./www/data/stopwords", foldername, sep = "/")
       dir.create(foldername, recursive = TRUE)
       file_name <- paste(foldername, "/", file_name, "-MF", input$stopnumber, "Stopword.rds", sep = "")
       saveRDS(stop_words, file_name)
@@ -1036,18 +1036,17 @@ server <- function(input, output, session) {
   })
   
 ##### 2.5. Processing TM #######
+
   output$ProcessTM <- renderUI({
-    ServerTM <- list.files(path = "./www", pattern = ".rds", recursive = TRUE, full.names = TRUE)
-    ServerTM <- ServerTM[which(grepl("Stopword", ServerTM) == FALSE)]
+    ServerTM <- .list.files('www/data/corpora', '.*rds')
     names(ServerTM) <- sapply(strsplit(ServerTM, "/"), function(x) {x[length(x)]})
-    selectInput("tm_corpus", label = "Choose Corpus", choices = ServerTM)
+    selectInput("tm_corpus", label = "Choose corpus", choices = ServerTM)
   })
   
   output$ProcessSW <- renderUI({
-    ServerSW <- list.files(path = "./www", pattern = ".rds", recursive = TRUE, full.names = TRUE)
-    ServerSW <- ServerSW[which(grepl("Stopword", ServerSW) == TRUE)]
+    ServerSW <- .list.files('www/data/stopwords', '.*rds')
     names(ServerSW) <- sapply(strsplit(ServerSW, "/"), function(x) {x[length(x)]})
-    selectInput("stopwordlist", label = "Choose SW List", choices = ServerSW)
+    selectInput("stopwordlist", label = "Choose stopword list", choices = ServerSW)
   })
   
   output$topicmodelling <- renderDataTable({
@@ -1058,7 +1057,7 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading texts', value = 0, {
+    withProgress(message = 'Reading texts...', value = 0, {
       research_corpus <- readRDS(inFile)
     })
     
@@ -1209,10 +1208,10 @@ server <- function(input, output, session) {
 ##### 2.6. Output Tables #######
 ##### 2.6.1. Output Theta Table #######
   output$thetaUI <- renderUI({
-    ServerTheta <- list.files(path = "./www", pattern = "theta.csv", recursive = TRUE, full.names = TRUE)
+    ServerTheta <- .list.files('www/data', '.*theta.*')
     names(ServerTheta) <- sapply(strsplit(ServerTheta, "/"), function(x) {x[length(x)-1]})
-    selectInput("ThetaTable", label = "Choose TM", choices = ServerTheta)
-    })
+    selectInput("ThetaTable", label = "Choose topic model", choices = ServerTheta, width = 800)
+  })
   
   output$theta <- renderDataTable({
     inFile <- input$ThetaTable
@@ -1220,7 +1219,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     
-    withProgress(message = 'Reading texts', value = 0, {
+    withProgress(message = 'Reading texts...', value = 0, {
       read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
       })
     })
@@ -1228,9 +1227,9 @@ server <- function(input, output, session) {
 ##### 2.6.2. Output Phi Table #######
 
   output$phiUI <- renderUI({
-    ServerPhi <- list.files(path = "./www", pattern = "phi.csv", recursive = TRUE, full.names = TRUE)
+    ServerPhi <- .list.files('www/data', '.*phi.*')
     names(ServerPhi) <- sapply(strsplit(ServerPhi, "/"), function(x) {x[length(x)-1]})
-    selectInput("PhiTable", label = "Choose TM", choices = ServerPhi)
+    selectInput("PhiTable", label = "Choose topic model", choices = ServerPhi, width = 800)
     })
 
   output$phi <- renderDataTable({
@@ -1247,10 +1246,8 @@ server <- function(input, output, session) {
 ##### 2.6. Downloads #####
 ##### 2.6.1. Corpus #####
   output$dlcorpusUI <- renderUI({
-    ServerCorpus <- list.files(path = "./www", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
-    ServerCorpus <- ServerCorpus[which(grepl("Stopword", ServerCorpus) == FALSE)]
-    ServerCorpus <- ServerCorpus[which(grepl("theta.rds", ServerCorpus, fixed = TRUE) == FALSE)]
-    ServerCorpus <- ServerCorpus[which(grepl("phi.rds", ServerCorpus, fixed = TRUE) == FALSE)]
+    ServerCorpus <- .list.files('www/data/corpora', '.*rds')
+    ServerCorpus <- ServerCorpus[which(grepl("(lda|phi|theta)\\.rds", ServerCorpus) == FALSE)]
     names(ServerCorpus) <- sapply(strsplit(ServerCorpus, "/"), function(x) {x[length(x)]})
     selectInput("download_corpus", label = "Corpus", choices = ServerCorpus)
   })
@@ -1314,16 +1311,16 @@ server <- function(input, output, session) {
     file_name <- unlist(strsplit(file_name, "/", fixed = TRUE))[3]
     file_name <- unlist(strsplit(file_name, ".", fixed = TRUE))[c(1,2)]
     file_name <- paste(file_name, sep = "", collapse = ".")
-    file_name <- paste("./www/", file_name, ".82xf", sep = "")
+    file_name <- paste("./www/data/downloads", file_name, ".82xf", sep = "")
     write.table(download_corpus, file, quote = TRUE, sep = "#", row.names = FALSE)
   })
 
 ##### 2.6.2. Phi-Tables #####
   
   output$dlphiUI <- renderUI({
-    ServerPhi <- list.files(path = "./www", pattern = "phi.csv", recursive = TRUE, full.names = TRUE)
+    ServerPhi <- .list.files('www/data/corpora', 'phi\\.csv')
     names(ServerPhi) <- sapply(strsplit(ServerPhi, "/"), function(x) {x[length(x)-1]})
-    selectInput("ThetaPhiDL", label = "Choose TM", choices = ServerPhi)
+    selectInput("ThetaPhiDL", label = "Choose topic model", choices = ServerPhi, width = 800)
   })
   
   output$prevphi <- renderDataTable({
@@ -1356,9 +1353,9 @@ server <- function(input, output, session) {
 ##### 2.6.3. Theta-Tables #####
   
   output$dlthetaUI <- renderUI({
-    ServerTheta <- list.files(path = "./www", pattern = "theta.csv", recursive = TRUE, full.names = TRUE)
+    ServerTheta <- .list.files('www/data/corpora', 'theta\\.csv')
     names(ServerTheta) <- sapply(strsplit(ServerTheta, "/"), function(x) {x[length(x)-1]})
-    selectInput("ThetaTableDL", label = "Choose TM", choices = ServerTheta)
+    selectInput("ThetaTableDL", label = "Choose topic model", choices = ServerTheta, width = 800)
   })
   
   output$prevtheta <- renderDataTable({
@@ -1367,7 +1364,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     
-    withProgress(message = 'Reading texts', value = 0, {
+    withProgress(message = 'Reading texts...', value = 0, {
       read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
     })
   })
@@ -1375,17 +1372,20 @@ server <- function(input, output, session) {
   output$downloadtheta <- downloadHandler(
     filename = function() {
       paste("test", "csv", sep = ".")
-      },
+    },
+
     content = function(file) {
       inFile <- input$ThetaTableDL
-      
+
       if (is.null(inFile))
         return(NULL)
-      downloadtheta <- withProgress(message = 'Reading texts', value = 0, {
+
+      downloadtheta <- withProgress(message = 'Reading texts...', value = 0, {
         read.csv(inFile, header = TRUE, sep = ",", quote = "\"")
       })
+
       write.table(downloadtheta, file, quote = TRUE, sep = ",", row.names = FALSE)
-      }
+    }
   )
   
 ##### 2.6.4. LDAvis Zip-file #####
