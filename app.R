@@ -73,7 +73,7 @@ fetch_passage <- function(x){
 
 ##### 1. User Interface #######
 
-ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height = "25"), "ToPān v.0.2"), windowTitle = "ToPān v.0.2 (beta)",
+ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height = "25"), "ToPān v0.2"), windowTitle = "ToPān v0.2 (beta)",
 ##### 1.0.1. Home #######
                  tabPanel("Home",
                           fluidRow(column(4, br(), div(img(src = "melete.png", height = "200"))),

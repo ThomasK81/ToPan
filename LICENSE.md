@@ -1,4 +1,4 @@
-(Meletē)ToPān v.0.1 is distributed under the Non-Profit Open Software License version 3.0 (NPOSL-3.0).
+(Meletē)ToPān is distributed under the Non-Profit Open Software License version 3.0 (NPOSL-3.0).
 Copyright (c) 2016 Thomas Köntges
 
 Non-Profit Open Software License 3.0 (NPOSL-3.0)

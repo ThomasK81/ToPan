@@ -2,7 +2,7 @@
 
 The butterfly in the logo is of the species Melete. The original photograph is by Didier Descouens and he has licensed it under CC BY-SA 4.0. I changed the image for the logo slightly. I'd strongly suggest to start with the <a href="https://commons.wikimedia.org/wiki/File:Melete_leucadia_MHNT_dos.jpg" target="_blank">original</a> if you want to use it, but you can also use this now slightly modified logo under CC BY-SA 4.0 license as I am required to share it under the same license as the original image.
 
-(Meletē)ToPān v.0.1 is distributed under the Non-Profit Open Software License version 3.0 (NPOSL-3.0).
+(Meletē)ToPān is distributed under the Non-Profit Open Software License version 3.0 (NPOSL-3.0).
 
 Copyright (c) 2016 Thomas Köntges
 
