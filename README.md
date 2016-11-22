@@ -6,26 +6,16 @@ ToPān is Topic-Modelling for everyone: from people without programming knowledg
 
 ToPān is also still under active development. This is an alpha release. More features will be added and you are encouraged to roadtest ToPān and send me feedback or report bugs.
 
-*Technical Note: ToPān is written in RShiny and uses the following R-libraries: shiny, RCurl (also I mainly switch to httr, because of RCurl's mysterious errors and performance issues when sending lots and lots of requests), XML (but also install XML2), httr (and curl), lda, LDAvis. If you want to install a local version of ToPān, simply clone the  <a href="https://github.com/ThomasK81/ToPan" target="_blank">repo</a>, install R, RStudio, and the mentioned libraries and Bob's your uncle.*
+*Please note: ToPān is written in RShiny and uses a number of other R libraries as well. In order to get ToPān working, please follow the instructions given below and Bob's your uncle!*
 
-##### Required libraries
+##### Requirements
 
-In order to try or install ToPān, you'll need a number of libraries. Provided the necessary operating system dependencies are already installed, the following command will take care of the R dependencies. You can run it in R or in RStudio:
+Given the necessary operating system dependencies are installed, ToPān will install all R dependencies on its first run. If this fails, carefully read the output looking for missing operating system libraries. Install as required and repeat trying to run ToPān until successful.
 
-```R
-for (package in c('shiny', 'LDAvis', 'XML', 'xml2', 'RCurl', 'httr', 'lda', 'servr', 'markdown', 'data.table')) {
-  install.packages(package)
-}
-```
+##### Running ToPān
 
-##### Trying it (running it from the GitHub Repo)
-
-1. Install [R](https://www.r-project.org) and optionally [RStudio](https://www.rstudio.com), which is a great help for working with R projects
-2. Install required libraries (see above)
-3. `library(shiny)`
-4. `runUrl("https://github.com/ThomasK81/ToPan/archive/master.zip")`
+1. Install [R](https://www.r-project.org)
+2. Optionally [RStudio](https://www.rstudio.com), which is a great help for working with R projects
+3. `git clone` this repository
+4. In your ToPān folder, type `./to_pan`
 5. Enjoy!
-
-##### Installing it
-
-As in the previous section, you'll need R and the required libraries. Then clone the repository, modify things if you like, and run the Shiny app from your local machine with `./to_pan` from within your clone's folder.
