@@ -236,7 +236,15 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
 ##### 1.7. Explore #######
                  
                  navbarMenu("Explore",
-                            tabPanel("Topics over IDs", mainPanel()),
+                            tabPanel("Topics over IDs", 
+                                     sidebarLayout(
+                                       sidebarPanel(
+                                         "INPUT SELECTION",
+                                         uiOutput("ExpLDAIDUI", click = "LDAID_click"),
+                                         sliderInput("LDAIDTopic", label = "Topic", min = 1, max = 15, value = 1),
+                                         verbatimTextOutput("LDAID_info")
+                                         ),
+                                       mainPanel(plotOutput("ExpLDAID")))),
                             tabPanel("Topics in Works", mainPanel()),
                             tabPanel("Most similar", mainPanel()),
                             tabPanel("Clusters", mainPanel())
@@ -1213,8 +1221,32 @@ server <- function(input, output, session) {
       })
     })
   
-##### 2.6. Downloads #####
-##### 2.6.1. Corpus #####
+##### 2.7. Explore #####
+##### 2.7.1. Topics over ID #####
+  output$ExpLDAIDUI <- renderUI({
+    ServerLDA <- list.files(path = "./www", pattern = "theta.rds", recursive = TRUE, full.names = TRUE)
+    names(ServerLDA) <- sapply(strsplit(ServerLDA, "/"), function(x) {x[length(x)-1]})
+    selectInput("LDAID", label = "Choose TM", choices = ServerLDA)
+  })
+  
+  output$ExpLDAID <- renderPlot({
+    inFile <- input$LDAID
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+    theta.frame <- readRDS(inFile)
+    theta.frame <- as.data.frame(theta.frame)
+    topic <- input$LDAIDTopic + 2
+    qplot(theta.frame[,topic])
+  })
+  
+  output$info <- renderText({
+    paste0("x=", input$LDAID_click$x, "\ny=", input$LDAID_click$y)
+  })
+  
+##### 2.8. Downloads #####
+##### 2.8.1. Corpus #####
   output$dlcorpusUI <- renderUI({
     ServerCorpus <- list.files(path = "./www", pattern = "*.rds", recursive = TRUE, full.names = TRUE)
     ServerCorpus <- ServerCorpus[which(grepl("Stopword", ServerCorpus) == FALSE)]
@@ -1287,7 +1319,7 @@ server <- function(input, output, session) {
     write.table(download_corpus, file, quote = TRUE, sep = "#", row.names = FALSE)
   })
 
-##### 2.6.2. Phi-Tables #####
+##### 2.8.2. Phi-Tables #####
   
   output$dlphiUI <- renderUI({
     ServerPhi <- list.files(path = "./www", pattern = "phi.csv", recursive = TRUE, full.names = TRUE)
@@ -1322,7 +1354,7 @@ server <- function(input, output, session) {
     }
   )
 
-##### 2.6.3. Theta-Tables #####
+##### 2.8.3. Theta-Tables #####
   
   output$dlthetaUI <- renderUI({
     ServerTheta <- list.files(path = "./www", pattern = "theta.csv", recursive = TRUE, full.names = TRUE)
@@ -1357,7 +1389,7 @@ server <- function(input, output, session) {
       }
   )
   
-##### 2.6.4. LDAvis Zip-file #####
+##### 2.8.4. LDAvis Zip-file #####
   
 }
 
