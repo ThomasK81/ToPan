@@ -1038,13 +1038,13 @@ server <- function(input, output, session) {
 ##### 2.5. Processing TM #######
 
   output$ProcessTM <- renderUI({
-    ServerTM <- .list.files('www/data/corpora', '.*rds')
+    ServerTM <- .list.files('www/data/corpora', '.*\\.rds')
     names(ServerTM) <- sapply(strsplit(ServerTM, "/"), function(x) {x[length(x)]})
     selectInput("tm_corpus", label = "Choose corpus", choices = ServerTM)
   })
   
   output$ProcessSW <- renderUI({
-    ServerSW <- .list.files('www/data/stopwords', '.*rds')
+    ServerSW <- .list.files('www/data/stopwords', '.*\\.rds')
     names(ServerSW) <- sapply(strsplit(ServerSW, "/"), function(x) {x[length(x)]})
     selectInput("stopwordlist", label = "Choose stopword list", choices = ServerSW)
   })
