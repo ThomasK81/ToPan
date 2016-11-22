@@ -1,4 +1,4 @@
-##### (Meletē)ToPān v0.1
+##### (Meletē)ToPān
 
 The name (Meletē)ToPān is based on the Greek principle μελέτη τὸ πᾶν, which roughly translates as "take everything into consideration". Topic modelling helps select the interesting bits from a large corpus of texts while technically having processed every document.
 
