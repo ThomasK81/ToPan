@@ -10,6 +10,7 @@ library(LDAvis)
 library(data.table)
 library(stringr)
 library(plyr)
+library(ggplot2)
 
 ##### 0.2. Functions #######
 
@@ -31,8 +32,10 @@ preprocess_corpus <- function(x) {
 ### GetCapabilities of CTS server to plain text
 FetchCTSRep <- function(x) {
   input <- read_xml(x)
+  incProgress(0.1, detail = "Retrieving identifiers...")
   urns <- xml_attrs(xml_find_all(xml_ns_strip(urns2), "//ti:edition"))
   urns <- lapply(urns, "[[", 1)
+  incProgress(0.1, detail = "Retrieving metadata")
   descriptions <- xml_text(xml_find_all(xml_ns_strip(input), "//ti:edition/ti:description"))
   names(urns) <- descriptions
   return(urns)
@@ -45,41 +48,37 @@ fetch_cts_ids <- function(x) {
   return(urns)
 }
 
-##### Findings urns in CTS XML up to fourth level
+##### Finding urns in CTS XML up to fourth level
 
 check_cts_ids <- function(x) {
-  message("Checking Reffs for ", x)
+  incProgress(0.1, detail = paste("Checking reffs for", x, "from server...", sep = " "))
   URL <- paste(reffURL, x, sep = "")
   if(http_error(URL) == TRUE) {
     return()
   } else {
-    message("Retrieving 1st level reffs for ", x)
+    incProgress(0.1, detail = paste("Retrieving 1st level reffs for", x, "from server...", sep = " "))
     urns <- fetch_cts_ids(x)
-    print(urns[1])
   }
   if(http_error(paste(reffURL, urns[1], sep = "")) == TRUE) {
     return(urns)
   } else {
-    message("Retrieving 2nd level reffs for ", x)
+    incProgress(0.1, detail = paste("Retrieving 2nd level reffs for", x, "from server...", sep = " "))
     urns <- lapply(urns, fetch_cts_ids)
     urns <- unlist(urns)
-    print(urns[1])
   }
   if(http_error(paste(reffURL, urns[1], sep = "")) == TRUE) {
     return(urns)
   } else {
-    message("Retrieving 3rd level reffs for ", x)
+    incProgress(0.1, detail = paste("Retrieving 3rd level reffs for", x, "from server...", sep = " "))
     urns <- lapply(urns, fetch_cts_ids)
     urns <- unlist(urns)
-    print(urns[1])
   }
   if(http_error(paste(reffURL, urns[1], sep = "")) == TRUE) {
     return(urns)
   } else {
-    message("Retrieving 4th level reffs for ", x)
+    incProgress(0.1, detail = paste("Retrieving 4th level reffs for", x, "from server...", sep = " "))
     urns <- lapply(urns, fetch_cts_ids)
     urns <- unlist(urns)
-    print(urns[1])
     return(urns)
   }
 }
@@ -87,7 +86,7 @@ check_cts_ids <- function(x) {
 ##### Get clean plain text based on CTS XML using URNs
 
 fetch_passage <- function(x){
-  message("Retrieving Passage for ", x)
+  incProgress(0.1, detail = paste('Reading', x, "from server...", sep = " "))
   passage <- xml_text(xml_find_all(xml_ns_strip(read_xml(paste(baseURL, x, sep = ""))), "//passage"))
   passage <-trimws(passage)
   passage <-str_replace_all(passage, "[\r\n]" , "")
@@ -263,9 +262,24 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                          "INPUT SELECTION",
                                          uiOutput("ExpLDAIDUI", click = "LDAID_click"),
                                          sliderInput("LDAIDTopic", label = "Topic", min = 1, max = 15, value = 1),
-                                         verbatimTextOutput("LDAID_info")
+                                         verbatimTextOutput("hover_info"),
+                                         verbatimTextOutput("click_info"),
+                                         verbatimTextOutput("dblclick_info"),
+                                         verbatimTextOutput("brush_info")
                                          ),
-                                       mainPanel(plotOutput("ExpLDAID")))),
+                                       mainPanel(plotOutput("ExpLDAID", height = 350,
+                                                            # Equivalent to: click = clickOpts(id = "plot_click")
+                                                            click = "plot_click",
+                                                            dblclick = dblclickOpts(
+                                                              id = "plot_dblclick"
+                                                            ),
+                                                            hover = hoverOpts(
+                                                              id = "plot_hover"
+                                                            ),
+                                                            brush = brushOpts(
+                                                              id = "plot_brush"
+                                                            )
+                                                            )))),
                             tabPanel("Topics in Works", mainPanel()),
                             tabPanel("Most similar", mainPanel()),
                             tabPanel("Clusters", mainPanel())
@@ -307,12 +321,12 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
 server <- function(input, output, session) {
   
   options(shiny.maxRequestSize=30*1024^2)
-  
+
 ##### 2.1. Catalogues #######
 ##### 2.1.1. Output CTS API Corpus #######  
   output$CTSUI <- renderUI({
     CTS.Rep <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
-    withProgress(message = 'Fetching URNs form server...', value = 0, {
+    withProgress(message = "Contacting server...", {
       urns <- FetchCTSRep(CTS.Rep)
     })
     selectInput("cts_urn", label = "CTS URN", choices = urns)
@@ -326,9 +340,10 @@ server <- function(input, output, session) {
     reffURL <- "http://cts.perseids.org/api/cts/?request=GetValidReff&urn="
     requestURN <- input$cts_urn
     
-    reffs <- check_cts_ids(requestURN)
-    
-    corpus <- unlist(lapply(reffs, fetch_passage))
+    withProgress(message = "Contacting server...", {
+      reffs <- check_cts_ids(requestURN)})
+    withProgress(message = "Contacting server...", {
+      corpus <- unlist(lapply(reffs, fetch_passage))})
     corpus.df <- data.frame(reffs, corpus)
     
     colnames(corpus.df) <- c("identifier", "text")
@@ -354,7 +369,8 @@ server <- function(input, output, session) {
     
     reffs <- check_cts_ids(requestURN)
     
-    corpus <- unlist(lapply(reffs, fetch_passage))
+    withProgress(message = "Contacting server...", value = 0, {
+      corpus <- unlist(lapply(reffs, fetch_passage))})
     corpus.df <- data.frame(reffs, corpus)
     
     colnames(corpus.df) <- c("identifier", "text")
@@ -952,65 +968,62 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
-    withProgress(message = 'Reading Texts', value = 0, {
+    withProgress(message = 'Reading Stopwords', value = 0, {
       stop_words <- readRDS(inFile)
     })
     
     output_names <- as.character(research_corpus$identifier)
     research_corpus <- as.character(research_corpus$text)
-    research_corpus <- gsub("^[[:space:]]+", "", research_corpus) # remove whitespace at beginning of documents
-    research_corpus <- gsub("[[:space:]]+$", "", research_corpus) # remove whitespace at end of documents
-    research_corpus <- gsub("[[:space:]]+", " ", research_corpus) # remove multiple whitespace
-    research_corpus <- trimws(research_corpus)
     
-    output_names <- gsub("^[[:space:]]+", "", output_names) # remove whitespace at beginning of documents
+    withProgress(message = "Normalise IDs...", {output_names <- gsub("^[[:space:]]+", "", output_names) # remove whitespace at beginning of documents
     output_names <- gsub("[[:space:]]+$", "", output_names) # remove whitespace at end of documents
     output_names <- gsub("[[:space:]]+", " ", output_names) # remove multiple whitespace
-    output_names <- trimws(output_names)
+    output_names <- trimws(output_names)})
     
-    research_corpus <- preprocess_corpus(research_corpus)
-    
-    # tokenize on space and output as a list:
-    doc.list <- strsplit(research_corpus, "[[:space:]]+")
-    all_words <- unlist(doc.list)
-    # compute the table of terms:
-    term.table <- table(all_words)
-    term.table <- sort(term.table, decreasing = TRUE)
-    
-    occurences <- input$occurrence
-    del <- names(term.table) %in% stop_words | term.table < occurences
-    term.table <- term.table[!del]
-    vocab <- names(term.table)
-    
-    # now put the documents into the format required by the lda package:
-    get.terms <- function(x) {
-      index <- match(x, vocab)
-      index <- index[!is.na(index)]
-      rbind(as.integer(index - 1), as.integer(rep(1, length(index))))
-    }
-    documents <- lapply(doc.list, get.terms)
-    
-    # Compute some statistics related to the data set:
-    D <- length(documents)  # number of documents (2,000)
-    W <- length(vocab)  # number of terms in the vocab (14,568)
-    doc.length <- sapply(documents, function(x) sum(x[2, ]))  # number of tokens per document [312, 288, 170, 436, 291, ...]
-    N <- sum(doc.length)  # total number of tokens in the data (546,827)
-    term.frequency <- as.integer(term.table)  # frequencies of terms in the corpus [8939, 5544, 2411, 2410, 2143, ...]
+    withProgress(message = "Prepare topic modelling...", {
+      research_corpus <- preprocess_corpus(research_corpus)
+      # tokenize on space and output as a list:
+      doc.list <- strsplit(research_corpus, "[[:space:]]+")
+      all_words <- unlist(doc.list)
+      # compute the table of terms:
+      term.table <- table(all_words)
+      term.table <- sort(term.table, decreasing = TRUE)
+      occurences <- input$occurrence
+      del <- names(term.table) %in% stop_words | term.table < occurences
+      term.table <- term.table[!del]
+      vocab <- names(term.table)
+      
+      # now put the documents into the format required by the lda package:
+      get.terms <- function(x) {
+        index <- match(x, vocab)
+        index <- index[!is.na(index)]
+        rbind(as.integer(index - 1), as.integer(rep(1, length(index))))
+        }
+      documents <- lapply(doc.list, get.terms)
+      # Compute some statistics related to the data set:
+      D <- length(documents)  # number of documents (2,000)
+      W <- length(vocab)  # number of terms in the vocab (14,568)
+      doc.length <- sapply(documents, function(x) sum(x[2, ]))  # number of tokens per document [312, 288, 170, 436, 291, ...]
+      N <- sum(doc.length)  # total number of tokens in the data (546,827)
+      term.frequency <- as.integer(term.table)  # frequencies of terms in the corpus [8939, 5544, 2411, 2410, 2143, ...]
+      })
     
     # Fit the model:
-    seed <- 73
-    set.seed(seed)
-    K <- input$number_topics
-    iterations <- input$iterations
-    alpha <- input$alpha
-    eta <- input$eta
-    number_terms <- input$number_terms
+    withProgress(message = "Modelling (this may take a while)...", {
+      seed <- 73
+      set.seed(seed)
+      K <- input$number_topics
+      iterations <- input$iterations
+      alpha <- input$alpha
+      eta <- input$eta
+      number_terms <- input$number_terms
+      fit <- lda.collapsed.gibbs.sampler(documents = documents, K = K, vocab = vocab, 
+                                         num.iterations = iterations, alpha = alpha, 
+                                         eta = eta, initial = NULL, burnin = 0,
+                                         compute.log.likelihood = TRUE)
+    })
     
-    fit <- lda.collapsed.gibbs.sampler(documents = documents, K = K, vocab = vocab, 
-                                       num.iterations = iterations, alpha = alpha, 
-                                       eta = eta, initial = NULL, burnin = 0,
-                                       compute.log.likelihood = TRUE)
-    
+    withProgress(message = "Structuring results...", {
     theta <- t(apply(fit$document_sums + alpha, 2, function(x) x/sum(x)))
     phi <- t(apply(t(fit$topics) + eta, 2, function(x) x/sum(x)))
     
@@ -1027,6 +1040,7 @@ server <- function(input, output, session) {
                        vocab = research_corpusAbstracts$vocab, 
                        term.frequency = research_corpusAbstracts$term.frequency,
                        R=number_terms)
+    })
     
     #Visualise and save
     inFile <- input$tm_corpus
@@ -1143,12 +1157,28 @@ server <- function(input, output, session) {
     theta.frame <- readRDS(inFile)
     theta.frame <- as.data.frame(theta.frame)
     topic <- input$LDAIDTopic + 2
-    qplot(theta.frame[,topic])
+    theta.frame[,topic] <- as.numeric(levels(theta.frame[,topic]))[theta.frame[,topic]]
+    ggplot(data = theta.frame, aes(identifier, theta.frame[,topic])) + geom_col() + labs(title = names(theta.frame)[topic], x = "URN", y = "Topic Value")
   })
   
-  output$info <- renderText({
-    paste0("x=", input$LDAID_click$x, "\ny=", input$LDAID_click$y)
+  output$click_info <- renderPrint({
+    cat("input$plot_click:\n")
+    str(input$plot_click)
   })
+  output$hover_info <- renderPrint({
+    cat("input$plot_hover:\n")
+    str(input$plot_hover)
+  })
+  output$dblclick_info <- renderPrint({
+    cat("input$plot_dblclick:\n")
+    str(input$plot_dblclick)
+  })
+  output$brush_info <- renderPrint({
+    cat("input$plot_brush:\n")
+    str(input$plot_brush)
+  })
+  
+  
   
 ##### 2.8. Downloads #####
 ##### 2.8.1. Corpus #####
