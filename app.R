@@ -2,75 +2,96 @@
 
 library(shiny)
 library(RCurl)
-library(XML) #also install XML2
+library(XML) #also install xml2
+library(xml2) 
 library(httr)
 library(lda)
 library(LDAvis)
 library(data.table)
+library(stringr)
+library(plyr)
 
 ##### 0.2. Functions #######
 
+
+### Text cleaning function
+preprocess_corpus <- function(x) {
+  research_corpus <- tolower(x)  # force to lowercase
+  research_corpus <- gsub("'", " ", research_corpus)  # remove apostrophes
+  research_corpus <- gsub("-", "", research_corpus)  # remove hyphens
+  research_corpus <- gsub("[[:punct:]]", " ", research_corpus)  # replace punctuation with space
+  research_corpus <- gsub("[[:cntrl:]]", " ", research_corpus)  # replace control characters with space
+  research_corpus <- trimws(research_corpus)
+  research_corpus <-str_replace_all(research_corpus, "[\r\n]" , "")
+  research_corpus <- gsub("^ *|(?<= ) | *$", "", research_corpus, perl = TRUE) # Remove multiple whitespace
+  research_corpus <- gsub("[0-9]", "", research_corpus) #remove numbers
+  return(research_corpus)
+}
+
+### GetCapabilities of CTS server to plain text
 FetchCTSRep <- function(x) {
-  xmlfile <- xmlTreeParse(x)
-  xmltop <- xmlRoot(xmlfile)
-  xmltop <- xmltop[[2]]
-  xmltop <- xmltop[[1]]
-  output <- list()
-  counter <- 0
-  for (i in 1:length(xmltop)) {
-    for (j in 1:length(xmltop[[i]])) {
-      for (x in 1:length(xmltop[[i]][[j]])) {
-        counter <- counter + 1
-        output[[counter]] <- xmlAttrs(xmltop[[i]][[j]][[x]])["urn"]
-      }
-    }
-  }
-  urns <- unique(unlist(output))
-  urns <- urns[!is.na(urns)]
+  input <- read_xml(x)
+  urns <- xml_attrs(xml_find_all(xml_ns_strip(urns2), "//ti:edition"))
+  urns <- lapply(urns, "[[", 1)
+  descriptions <- xml_text(xml_find_all(xml_ns_strip(input), "//ti:edition/ti:description"))
+  names(urns) <- descriptions
   return(urns)
 }
 
-fetch_reffs <- function(x){
-   message("Retrieve Reffs for ", x)
-  URL <- paste(reffURL, x, sep = "")
-  URLcontent <- content(GET(URL), type = "text/xml")
-  xmlfile <- xmlTreeParse(URLcontent)
-  xmltop <- xmlRoot(xmlfile)
-  reffs <- vector()
-  for (i in 1:length(xmltop[[2]][[1]])) {
-    reffs[i] <- xmlValue(xmltop[[2]][[1]][[i]])
-    }
-  return(reffs)
-  }
+##### Findings urns in CTS XML
 
-test_reffs <- function(x){
-  message("Retrieve Reffs for ", x)
-  URL <- paste(reffURL, x, sep = "")
-  URLcontent <- content(GET(URL), type = "text/xml")
-  xmlfile <- xmlTreeParse(URLcontent)
-  xmltop <- xmlRoot(xmlfile)
-  if(xmlValue(xmltop[[2]]) == ""){
-    return(FALSE)
-  }
-  if(xmlValue(xmltop[[2]][[1]][[1]]) == "Internal Server Error"){
-    return(FALSE)
-  }
-  return(TRUE)
+fetch_cts_ids <- function(x) {
+  urns <- xml_text(xml_find_all(xml_ns_strip(read_xml(paste(reffURL, x, sep = ""))), "//urn"))
+  return(urns)
 }
 
-fetch_passage <- function(x){
-  message("Retrieve Passage for ", x)
-  URL <- paste(baseURL, x, sep = "")
-  URLcontent <- content(GET(URL), type = "text/xml")
-  xmlfile <- xmlTreeParse(URLcontent)
-  xmltop <- xmlRoot(xmlfile)
-  response <- xmltop[[2]]
-  passage <- vector()
-  for (i in 1:length(xmltop[[2]][[1]])) {
-    passage[i] <- xmlValue(response[[2]][[1]])
+##### Findings urns in CTS XML up to fourth level
+
+check_cts_ids <- function(x) {
+  message("Checking Reffs for ", x)
+  URL <- paste(reffURL, x, sep = "")
+  if(http_error(URL) == TRUE) {
+    return()
+  } else {
+    message("Retrieving 1st level reffs for ", x)
+    urns <- fetch_cts_ids(x)
+    print(urns[1])
   }
-  passage <- gsub("\n", "", passage, fixed = FALSE)
-  passage <- gsub("\t", "", passage, fixed = FALSE)
+  if(http_error(paste(reffURL, urns[1], sep = "")) == TRUE) {
+    return(urns)
+  } else {
+    message("Retrieving 2nd level reffs for ", x)
+    urns <- lapply(urns, fetch_cts_ids)
+    urns <- unlist(urns)
+    print(urns[1])
+  }
+  if(http_error(paste(reffURL, urns[1], sep = "")) == TRUE) {
+    return(urns)
+  } else {
+    message("Retrieving 3rd level reffs for ", x)
+    urns <- lapply(urns, fetch_cts_ids)
+    urns <- unlist(urns)
+    print(urns[1])
+  }
+  if(http_error(paste(reffURL, urns[1], sep = "")) == TRUE) {
+    return(urns)
+  } else {
+    message("Retrieving 4th level reffs for ", x)
+    urns <- lapply(urns, fetch_cts_ids)
+    urns <- unlist(urns)
+    print(urns[1])
+    return(urns)
+  }
+}
+
+##### Get clean plain text based on CTS XML using URNs
+
+fetch_passage <- function(x){
+  message("Retrieving Passage for ", x)
+  passage <- xml_text(xml_find_all(xml_ns_strip(read_xml(paste(baseURL, x, sep = ""))), "//passage"))
+  passage <-trimws(passage)
+  passage <-str_replace_all(passage, "[\r\n]" , "")
+  passage <- gsub("^ *|(?<= ) | *$", "", passage, perl = TRUE)
   return(passage)
 }
 
@@ -305,44 +326,13 @@ server <- function(input, output, session) {
     reffURL <- "http://cts.perseids.org/api/cts/?request=GetValidReff&urn="
     requestURN <- input$cts_urn
     
-    first_reffs <- fetch_reffs(requestURN)
-    if (test_reffs(first_reffs[1]) == TRUE) {
-      second_reffs <- unlist(lapply(first_reffs, fetch_reffs))
-      second_reffs <- unique(second_reffs)
-      if (length(grep("Internal Server Error", second_reffs)) != 0) {
-        second_reffs <- second_reffs[-grep("Internal Server Error", second_reffs)]
-      }
-    } else {second_reffs <- vector()}
-    if (test_reffs(second_reffs[1]) == TRUE) {
-      third_reffs <- unlist(lapply(second_reffs, fetch_reffs))
-      third_reffs <- unique(third_reffs)
-      if (length(grep("Internal Server Error", third_reffs)) != 0) {
-        third_reffs <- third_reffs[-grep("Internal Server Error", third_reffs)]
-      }
-    } else {third_reffs <- vector()}
-    if (test_reffs(third_reffs[1]) == TRUE) {
-      fourth_reffs <- unlist(lapply(third_reffs, fetch_reffs))
-      fourth_reffs <- unique(fourth_reffs)
-      if (length(grep("Internal Server Error", fourth_reffs)) != 0) {
-        fourth_reffs <- fourth_reffs[-grep("Internal Server Error", fourth_reffs)]
-      }
-    } else {fourth_reffs <- vector()}
-    
-    if (length(fourth_reffs) != 0) {
-      reffs <- fourth_reffs
-    } else if (length(third_reffs) != 0) {
-      reffs <- third_reffs
-    } else if (length(second_reffs) != 0) {
-      reffs <- second_reffs
-    } else {
-      reffs <- first_reffs
-    }
+    reffs <- check_cts_ids(requestURN)
     
     corpus <- unlist(lapply(reffs, fetch_passage))
     corpus.df <- data.frame(reffs, corpus)
+    
     colnames(corpus.df) <- c("identifier", "text")
-    write.csv(corpus.df, "./www/corpus.csv", row.names = FALSE)
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corpus.df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -362,44 +352,13 @@ server <- function(input, output, session) {
     reffURL <- paste(input$api_url, "GetValidReff&urn=", sep = "")
     requestURN <- input$api_cts_urn
     
-    first_reffs <- fetch_reffs(requestURN)
-    if (test_reffs(first_reffs[1]) == TRUE) {
-      second_reffs <- unlist(lapply(first_reffs, fetch_reffs))
-      second_reffs <- unique(second_reffs)
-      if (length(grep("Internal Server Error", second_reffs)) != 0) {
-        second_reffs <- second_reffs[-grep("Internal Server Error", second_reffs)]
-      }
-    } else {second_reffs <- vector()}
-    if (test_reffs(second_reffs[1]) == TRUE) {
-      third_reffs <- unlist(lapply(second_reffs, fetch_reffs))
-      third_reffs <- unique(third_reffs)
-      if (length(grep("Internal Server Error", third_reffs)) != 0) {
-        third_reffs <- third_reffs[-grep("Internal Server Error", third_reffs)]
-      }
-    } else {third_reffs <- vector()}
-    if (test_reffs(third_reffs[1]) == TRUE) {
-      fourth_reffs <- unlist(lapply(third_reffs, fetch_reffs))
-      fourth_reffs <- unique(fourth_reffs)
-      if (length(grep("Internal Server Error", fourth_reffs)) != 0) {
-        fourth_reffs <- fourth_reffs[-grep("Internal Server Error", fourth_reffs)]
-      }
-    } else {fourth_reffs <- vector()}
-    
-    if (length(fourth_reffs) != 0) {
-      reffs <- fourth_reffs
-    } else if (length(third_reffs) != 0) {
-      reffs <- third_reffs
-    } else if (length(second_reffs) != 0) {
-      reffs <- second_reffs
-    } else {
-      reffs <- first_reffs
-    }
+    reffs <- check_cts_ids(requestURN)
     
     corpus <- unlist(lapply(reffs, fetch_passage))
     corpus.df <- data.frame(reffs, corpus)
+    
     colnames(corpus.df) <- c("identifier", "text")
-    write.csv(corpus.df, "./www/corpus.csv", row.names = FALSE)
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corpus.df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -448,7 +407,7 @@ server <- function(input, output, session) {
       CSVcatalogue <- fread(inFile$datapath, header = input$header, sep = input$sep)
     })
     colnames(CSVcatalogue) <- c('identifier', 'text')
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue$identifier), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -499,7 +458,7 @@ server <- function(input, output, session) {
       }
       corpus <- data.frame(as.character(identifier), as.character(corpus), as.character(parsedCorpus))
       names(corpus) <- c("identifier", "text", "parsed")
-      withProgress(message = 'Save Binary...', value = 0, {
+      withProgress(message = 'Saving Binary...', value = 0, {
         file_name <- unlist(strsplit(as.character(corpus[1,1]), ":", fixed = TRUE))[4]
         foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
         foldername <- paste("./www/data", foldername, sep = "/")
@@ -534,7 +493,7 @@ server <- function(input, output, session) {
     })
     CSVcatalogue <- data.frame(CSVcatalogue$identifier, CSVcatalogue$passage)
     colnames(CSVcatalogue) <- c('identifier', 'text')
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -656,7 +615,7 @@ server <- function(input, output, session) {
     corrected_corpus_df <- data.frame(identifier, research_corpus)
     colnames(corrected_corpus_df) <- c('identifier', 'text')
     
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -746,7 +705,7 @@ server <- function(input, output, session) {
     corrected_corpus_df <- data.frame(identifier, research_corpus)
     colnames(corrected_corpus_df) <- c('identifier', 'text')
     
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -769,62 +728,6 @@ server <- function(input, output, session) {
       langurl <- "&lang=ara&engine=aramorph"
     }
     
-    XMLpassage2 <-function(xdata){
-      result <- xmlParse(xdata)
-      temp.df <- as.data.frame(t(xpathSApply(result, "//*/hdwd", XMLminer)), stringsAsFactors = FALSE)
-      as.vector(temp.df[['text']])}
-    
-    XMLminer <- function(x){
-      xname <- xmlName(x)
-      xattrs <- xmlAttrs(x)
-      c(sapply(xmlChildren(x), xmlValue), name = xname, xattrs)}
-    
-    parsing <- function(x){
-      word_form <- x
-      withProgress(message = paste('Parse ', word_form, ": ", round((match(word_form, corpus_words)-1)/length(corpus_words)*100, digits=2), '%'), value = 0, {
-        URL <- paste(morpheusURL, word_form, langurl, sep = "")
-        
-        URLcontent <- tryCatch({
-          getURLContent(URL)}, 
-          error = function(err)
-          {tryCatch({
-            Sys.sleep(0.1)
-            getURLContent(URL)},
-            error = function(err)
-            {incProgress(0.1, detail = "Return original form")
-              return(word_form)
-            })
-          })
-        if (URLcontent == "ServerError") {
-          lemma <- x
-          incProgress(0.1, detail = "Return original form")
-          return(lemma)}
-        else {
-          lemma <- if (is.null(XMLpassage2(URLcontent)) == TRUE) {
-            lemma <- x
-            incProgress(0.1, detail = "Return original form")
-            return(lemma)}
-          else {lemma <- tryCatch({XMLpassage2(URLcontent)},
-                                  error = function(err) {
-                                    incProgress(0.1, detail = "Return original form")
-                                    lemma <- x
-                                    return(lemma)})
-          
-          lemma <- gsub("[0-9]", "", lemma)
-          lemma <- tolower(lemma)
-          lemma <- unique(lemma)
-          if (nchar(lemma) == 0) {
-            lemma <- x
-            incProgress(0.1, detail = "Return original form")
-            return(lemma)}
-          else {
-            incProgress(0.1, detail = paste(x, " is ", lemma))
-            return(lemma)
-          }
-          }
-        }})
-    }
-    
     inFile <- input$morph_corpus
     
     if (is.null(inFile))
@@ -840,17 +743,8 @@ server <- function(input, output, session) {
     
     ### pre-processing:
     
-    research_corpus <- tolower(research_corpus)  # force to lowercase
-    research_corpus <- gsub("'", " ", research_corpus)  # remove apostrophes
-    research_corpus <- gsub("-", "", research_corpus)  # remove hyphens, create composita
-    # research_corpus <- gsub("v", "u", research_corpus) # normalise to 'u'
-    # research_corpus <- gsub("j", "i", research_corpus) # normalise to 'i'
+    research_corpus <- preprocess_corpus(research_corpus)
     
-    research_corpus <- gsub("[[:punct:]]", " ", research_corpus)  # replace punctuation with space
-    research_corpus <- gsub("[[:cntrl:]]", " ", research_corpus)  # replace control characters with space
-    research_corpus <- gsub("^[[:space:]]+", "", research_corpus) # remove whitespace at beginning of documents
-    research_corpus <- gsub("[[:space:]]+$", "", research_corpus) # remove whitespace at end of documents
-    research_corpus <- gsub("[0-9]", "", research_corpus) #remove numbers
     
     ## produce dictionary for stemming:
     
@@ -862,6 +756,25 @@ server <- function(input, output, session) {
     corpus_words <- sort(corpus_words)
     
     ## stemming
+    parsing <- function(x){
+      word_form <- x
+      withProgress(message = paste('Parsing ', word_form, ": ", round((match(word_form, corpus_words)-1)/length(corpus_words)*100, digits=2), '%'), value = 0, {
+        URL <- paste(morpheusURL, word_form, langurl, sep = "")
+        morph <- read_xml(URL)
+        lemmata <- xml_text(xml_find_all(morph, "//hdwd"))
+        lemmata <- gsub("[0-9]", "", lemmata)
+        lemmata <- tolower(lemmata)
+        lemmata <- unique(lemmata)
+        if (length(lemmata) == 0) {
+          lemmata <- x
+          incProgress(0.1, detail = "Return original form")
+          return(lemmata)}
+        else {
+          incProgress(0.1, detail = paste(x, " is ", lemmata))
+          return(lemmata)
+        }
+      })
+    }
     
     stem_dictionary <- sapply(corpus_words, parsing)
     file_name <- paste("./www/", "StemDic", ".rds", sep = "")
@@ -919,7 +832,7 @@ server <- function(input, output, session) {
     corrected_corpus_df <- data.frame(identifier, research_corpus)
     colnames(corrected_corpus_df) <- c('identifier', 'text')
     
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -974,11 +887,7 @@ server <- function(input, output, session) {
     })
     identifier <- as.character(research_corpus$identifier)
     stopword_corpus <- as.character(research_corpus$text)
-    stopword_corpus <- gsub("[[:punct:]]", " ", stopword_corpus)  # replace punctuation with space
-    stopword_corpus <- gsub("[[:cntrl:]]", " ", stopword_corpus)  # replace control characters with space
-    stopword_corpus <- gsub("^[[:space:]]+", "", stopword_corpus) # remove whitespace at beginning of documents
-    stopword_corpus <- gsub("[[:space:]]+$", "", stopword_corpus) # remove whitespace at end of documents
-    stopword_corpus <- gsub("[0-9]", "", stopword_corpus) #remove numbers
+    stopword_corpus <- preprocess_corpus(stopword_corpus)
     
     # tokenize stopword_corpus on space and output as a list:
     doc.list2 <- strsplit(stopword_corpus, "[[:space:]]+")
@@ -1000,7 +909,7 @@ server <- function(input, output, session) {
     less <- gsub("[[:space:]]+$", "", less) # remove whitespace at end of documents
     stop_words <- stop_words [! stop_words %in% less]
     
-    withProgress(message = 'Save Binary...', value = 0, {
+    withProgress(message = 'Saving Binary...', value = 0, {
       file_name <- as.character(unlist(strsplit(identifier, ":", fixed = TRUE))[4])
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
@@ -1059,11 +968,7 @@ server <- function(input, output, session) {
     output_names <- gsub("[[:space:]]+", " ", output_names) # remove multiple whitespace
     output_names <- trimws(output_names)
     
-    research_corpus <- gsub("[[:punct:]]", " ", research_corpus)  # replace punctuation with space
-    research_corpus <- gsub("[[:cntrl:]]", " ", research_corpus)  # replace control characters with space
-    research_corpus <- gsub("^[[:space:]]+", "", research_corpus) # remove whitespace at beginning of documents
-    research_corpus <- gsub("[[:space:]]+$", "", research_corpus) # remove whitespace at end of documents
-    research_corpus <- gsub("[0-9]", "", research_corpus) #remove numbers
+    research_corpus <- preprocess_corpus(research_corpus)
     
     # tokenize on space and output as a list:
     doc.list <- strsplit(research_corpus, "[[:space:]]+")
