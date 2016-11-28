@@ -11,6 +11,7 @@ library(data.table)
 library(stringr)
 library(plyr)
 library(ggplot2)
+library(Cairo)
 
 ##### 0.2. Functions #######
 
@@ -33,7 +34,7 @@ preprocess_corpus <- function(x) {
 FetchCTSRep <- function(x) {
   input <- read_xml(x)
   incProgress(0.1, detail = "Retrieving identifiers...")
-  urns <- xml_attrs(xml_find_all(xml_ns_strip(urns2), "//ti:edition"))
+  urns <- xml_attrs(xml_find_all(xml_ns_strip(input), "//ti:edition"))
   urns <- lapply(urns, "[[", 1)
   incProgress(0.1, detail = "Retrieving metadata")
   descriptions <- xml_text(xml_find_all(xml_ns_strip(input), "//ti:edition/ti:description"))
@@ -256,30 +257,24 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
 ##### 1.7. Explore #######
                  
                  navbarMenu("Explore",
-                            tabPanel("Topics over IDs", 
-                                     sidebarLayout(
-                                       sidebarPanel(
-                                         "INPUT SELECTION",
-                                         uiOutput("ExpLDAIDUI", click = "LDAID_click"),
-                                         sliderInput("LDAIDTopic", label = "Topic", min = 1, max = 15, value = 1),
-                                         verbatimTextOutput("hover_info"),
-                                         verbatimTextOutput("click_info"),
-                                         verbatimTextOutput("dblclick_info"),
-                                         verbatimTextOutput("brush_info")
-                                         ),
-                                       mainPanel(plotOutput("ExpLDAID", height = 350,
-                                                            # Equivalent to: click = clickOpts(id = "plot_click")
-                                                            click = "plot_click",
-                                                            dblclick = dblclickOpts(
-                                                              id = "plot_dblclick"
-                                                            ),
-                                                            hover = hoverOpts(
-                                                              id = "plot_hover"
-                                                            ),
-                                                            brush = brushOpts(
-                                                              id = "plot_brush"
-                                                            )
-                                                            )))),
+                            tabPanel("Topics over IDs",
+                                     fluidRow(
+                                       column(width = 4, class = "well",
+                                              "INPUT SELECTION",
+                                              uiOutput("ExpLDAIDUI", click = "LDAID_click"),
+                                              sliderInput("LDAIDTopic", label = "Topic", min = 1, max = 15, value = 1)),
+                                       column(width = 8,
+                                              fluidRow(
+                                                column(width = 2,
+                                                       plotOutput("ExpLDAID", height = 100,
+                                                                  brush = brushOpts(
+                                                                    id = "ExpLDAID_brush",
+                                                                    resetOnNew = TRUE
+                                                                    ))),
+                                                column(width = 10,
+                                                       plotOutput("ExpLDAID2", height = 400)
+                                                       )))
+                                              )),
                             tabPanel("Topics in Works", mainPanel()),
                             tabPanel("Most similar", mainPanel()),
                             tabPanel("Clusters", mainPanel())
@@ -1142,11 +1137,14 @@ server <- function(input, output, session) {
   
 ##### 2.7. Explore #####
 ##### 2.7.1. Topics over ID #####
+  
   output$ExpLDAIDUI <- renderUI({
     ServerLDA <- list.files(path = "./www", pattern = "theta.rds", recursive = TRUE, full.names = TRUE)
     names(ServerLDA) <- sapply(strsplit(ServerLDA, "/"), function(x) {x[length(x)-1]})
     selectInput("LDAID", label = "Choose TM", choices = ServerLDA)
   })
+  
+  ranges <- reactiveValues(x = NULL, y = NULL)
   
   output$ExpLDAID <- renderPlot({
     inFile <- input$LDAID
@@ -1158,26 +1156,42 @@ server <- function(input, output, session) {
     theta.frame <- as.data.frame(theta.frame)
     topic <- input$LDAIDTopic + 2
     theta.frame[,topic] <- as.numeric(levels(theta.frame[,topic]))[theta.frame[,topic]]
-    ggplot(data = theta.frame, aes(identifier, theta.frame[,topic])) + geom_col() + labs(title = names(theta.frame)[topic], x = "URN", y = "Topic Value")
+    theta.frame <- theta.frame
+    ggplot(data = theta.frame, aes(c(1:length(identifier)), theta.frame[,topic])) + 
+    labs(title = "Zoom", x = "", y = "") + 
+    geom_col()
   })
   
-  output$click_info <- renderPrint({
-    cat("input$plot_click:\n")
-    str(input$plot_click)
-  })
-  output$hover_info <- renderPrint({
-    cat("input$plot_hover:\n")
-    str(input$plot_hover)
-  })
-  output$dblclick_info <- renderPrint({
-    cat("input$plot_dblclick:\n")
-    str(input$plot_dblclick)
-  })
-  output$brush_info <- renderPrint({
-    cat("input$plot_brush:\n")
-    str(input$plot_brush)
+  output$ExpLDAID2 <- renderPlot({
+    inFile <- input$LDAID
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+    theta.frame <- readRDS(inFile)
+    theta.frame <- as.data.frame(theta.frame)
+    topic <- input$LDAIDTopic + 2
+    theta.frame <- theta.frame
+    theta.frame[,topic] <- as.numeric(levels(theta.frame[,topic]))[theta.frame[,topic]]
+    ggplot(data = theta.frame, aes(c(1:length(identifier)), theta.frame[,topic])) + 
+      labs(title = paste("Topic:", names(theta.frame)[topic]), x = "Section", y = "Topic Value") + 
+      geom_col() + coord_cartesian(xlim = ranges$x)
   })
   
+  observe({
+    brush <- input$ExpLDAID_brush
+    if (!is.null(brush)) {
+      ranges$x <- c(brush$xmin, brush$xmax)
+      ranges$y <- c(brush$ymin, brush$ymax)
+      print(brush$xmin)
+      print(brush$ymin)
+      
+    } else {
+      ranges$x <- NULL
+      ranges$y <- NULL
+    }
+  })
+
   
   
 ##### 2.8. Downloads #####
