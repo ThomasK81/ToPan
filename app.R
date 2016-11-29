@@ -44,41 +44,42 @@ FetchCTSRep <- function(x) {
 
 ##### Findings urns in CTS XML
 
-fetch_cts_ids <- function(x) {
-  urns <- xml_text(xml_find_all(xml_ns_strip(read_xml(paste(reffURL, x, sep = ""))), "//urn"))
+fetch_cts_ids <- function(x, y) {
+  incProgress(0.0001, detail = paste('Fetching IDs for', x, "from server...", sep = " "))
+  urns <- xml_text(xml_find_all(xml_ns_strip(read_xml(paste(y, x, sep = ""))), "//urn"))
   return(urns)
 }
 
 ##### Finding urns in CTS XML up to fourth level
 
-check_cts_ids <- function(x) {
+check_cts_ids <- function(x, y) {
   incProgress(0.1, detail = paste("Checking reffs for", x, "from server...", sep = " "))
-  URL <- paste(reffURL, x, sep = "")
+  URL <- paste(y, x, sep = "")
   if(http_error(URL) == TRUE) {
     return()
   } else {
     incProgress(0.1, detail = paste("Retrieving 1st level reffs for", x, "from server...", sep = " "))
-    urns <- fetch_cts_ids(x)
+    urns <- fetch_cts_ids(x, y)
   }
-  if(http_error(paste(reffURL, urns[1], sep = "")) == TRUE) {
+  if(http_error(paste(y, urns[1], sep = "")) == TRUE) {
     return(urns)
   } else {
     incProgress(0.1, detail = paste("Retrieving 2nd level reffs for", x, "from server...", sep = " "))
-    urns <- lapply(urns, fetch_cts_ids)
+    urns <- lapply(urns, fetch_cts_ids, y = y)
     urns <- unlist(urns)
   }
-  if(http_error(paste(reffURL, urns[1], sep = "")) == TRUE) {
+  if(http_error(paste(y, urns[1], sep = "")) == TRUE) {
     return(urns)
   } else {
     incProgress(0.1, detail = paste("Retrieving 3rd level reffs for", x, "from server...", sep = " "))
-    urns <- lapply(urns, fetch_cts_ids)
+    urns <- lapply(urns, fetch_cts_ids, y = y)
     urns <- unlist(urns)
   }
-  if(http_error(paste(reffURL, urns[1], sep = "")) == TRUE) {
+  if(http_error(paste(y, urns[1], sep = "")) == TRUE) {
     return(urns)
   } else {
     incProgress(0.1, detail = paste("Retrieving 4th level reffs for", x, "from server...", sep = " "))
-    urns <- lapply(urns, fetch_cts_ids)
+    urns <- lapply(urns, fetch_cts_ids, y = y)
     urns <- unlist(urns)
     return(urns)
   }
@@ -86,9 +87,9 @@ check_cts_ids <- function(x) {
 
 ##### Get clean plain text based on CTS XML using URNs
 
-fetch_passage <- function(x){
-  incProgress(0.1, detail = paste('Reading', x, "from server...", sep = " "))
-  passage <- xml_text(xml_find_all(xml_ns_strip(read_xml(paste(baseURL, x, sep = ""))), "//passage"))
+fetch_passage <- function(x, y){
+  incProgress(0.0001, detail = paste('Reading', x, "from server...", sep = " "))
+  passage <- xml_text(xml_find_all(xml_ns_strip(read_xml(paste(y, x, sep = ""))), "//passage"))
   passage <-trimws(passage)
   passage <-str_replace_all(passage, "[\r\n]" , "")
   passage <- gsub("^ *|(?<= ) | *$", "", passage, perl = TRUE)
@@ -352,9 +353,9 @@ server <- function(input, output, session) {
     requestURN <- input$cts_urn
     
     withProgress(message = "Contacting server...", {
-      reffs <- check_cts_ids(requestURN)})
+      reffs <- check_cts_ids(requestURN, reffURL)})
     withProgress(message = "Contacting server...", {
-      corpus <- unlist(lapply(reffs, fetch_passage))})
+      corpus <- unlist(lapply(reffs, fetch_passage, y = baseURL))})
     corpus.df <- data.frame(reffs, corpus)
     
     colnames(corpus.df) <- c("identifier", "text")
@@ -378,10 +379,10 @@ server <- function(input, output, session) {
     reffURL <- paste(input$api_url, "GetValidReff&urn=", sep = "")
     requestURN <- input$api_cts_urn
     
-    reffs <- check_cts_ids(requestURN)
+    reffs <- check_cts_ids(requestURN, reffURL)
     
     withProgress(message = "Contacting server...", value = 0, {
-      corpus <- unlist(lapply(reffs, fetch_passage))})
+      corpus <- unlist(lapply(reffs, fetch_passage, y = baseURL))})
     corpus.df <- data.frame(reffs, corpus)
     
     colnames(corpus.df) <- c("identifier", "text")
