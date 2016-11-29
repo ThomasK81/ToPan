@@ -262,7 +262,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                        column(width = 4, class = "well",
                                               "INPUT SELECTION",
                                               uiOutput("ExpLDAIDUI", click = "LDAID_click"),
-                                              sliderInput("LDAIDTopic", label = "Topic", min = 1, max = 15, value = 1)),
+                                              uiOutput("ExpLDAIDUI2")),
                                        column(width = 8,
                                               fluidRow(
                                                 column(width = 2,
@@ -275,9 +275,25 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                                        plotOutput("ExpLDAID2", height = 400)
                                                        )))
                                               )),
-                            tabPanel("Topics in Works", mainPanel()),
-                            tabPanel("Most similar", mainPanel()),
-                            tabPanel("Clusters", mainPanel())
+                            tabPanel("Topic vs. Topic", 
+                                     fluidRow(
+                                       column(width = 4, class = "well",
+                                              "INPUT SELECTION",
+                                              uiOutput("ExpTVTUI", click = "LDAID_click"),
+                                              uiOutput("ExpTVTUI2"),
+                                              uiOutput("ExpTVTUI3")),
+                                       column(width = 8,
+                                              fluidRow(
+                                                column(width = 6,
+                                                       plotOutput("ExpTVT", height = 300,
+                                                                  brush = brushOpts(
+                                                                    id = "ExpTVT_brush",
+                                                                    resetOnNew = FALSE
+                                                                  ))),
+                                                column(width = 6,
+                                                       plotOutput("ExpTVT2", height = 300)
+                                                )))
+                                     ))
                  ),
                  
 ##### 1.8. Downloads #######
@@ -1144,17 +1160,32 @@ server <- function(input, output, session) {
     selectInput("LDAID", label = "Choose TM", choices = ServerLDA)
   })
   
-  ranges <- reactiveValues(x = NULL, y = NULL)
-  
-  output$ExpLDAID <- renderPlot({
+  output$ExpLDAIDUI2 <- renderUI({
     inFile <- input$LDAID
     
     if (is.null(inFile))
       return(NULL)
     
     theta.frame <- readRDS(inFile)
+    max_value <- ncol(theta.frame) - 2
+    sliderInput("LDAIDTopic", label = "Topic", min = 1, max = max_value, value = 1)
+  })
+  
+  ranges <- reactiveValues(x = NULL, y = NULL)
+  
+  output$ExpLDAID <- renderPlot({
+    inFile <- input$LDAID
+    inNumber <- input$LDAIDTopic
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+    if (is.null(inNumber))
+      return(NULL)
+    
+    theta.frame <- readRDS(inFile)
     theta.frame <- as.data.frame(theta.frame)
-    topic <- input$LDAIDTopic + 2
+    topic <- inNumber + 2
     theta.frame[,topic] <- as.numeric(levels(theta.frame[,topic]))[theta.frame[,topic]]
     theta.frame <- theta.frame
     ggplot(data = theta.frame, aes(c(1:length(identifier)), theta.frame[,topic])) + 
@@ -1164,13 +1195,17 @@ server <- function(input, output, session) {
   
   output$ExpLDAID2 <- renderPlot({
     inFile <- input$LDAID
+    inNumber <- input$LDAIDTopic
     
     if (is.null(inFile))
       return(NULL)
     
+    if (is.null(inNumber))
+      return(NULL)
+    
     theta.frame <- readRDS(inFile)
     theta.frame <- as.data.frame(theta.frame)
-    topic <- input$LDAIDTopic + 2
+    topic <- inNumber + 2
     theta.frame <- theta.frame
     theta.frame[,topic] <- as.numeric(levels(theta.frame[,topic]))[theta.frame[,topic]]
     ggplot(data = theta.frame, aes(c(1:length(identifier)), theta.frame[,topic])) + 
@@ -1183,8 +1218,6 @@ server <- function(input, output, session) {
     if (!is.null(brush)) {
       ranges$x <- c(brush$xmin, brush$xmax)
       ranges$y <- c(brush$ymin, brush$ymax)
-      print(brush$xmin)
-      print(brush$ymin)
       
     } else {
       ranges$x <- NULL
@@ -1192,6 +1225,98 @@ server <- function(input, output, session) {
     }
   })
 
+##### 2.7.2. Topic vs Topic #####
+  
+  output$ExpTVTUI <- renderUI({
+    ServerLDA <- list.files(path = "./www", pattern = "theta.rds", recursive = TRUE, full.names = TRUE)
+    names(ServerLDA) <- sapply(strsplit(ServerLDA, "/"), function(x) {x[length(x)-1]})
+    selectInput("TVT", label = "Choose TM", choices = ServerLDA)
+  })
+  
+  output$ExpTVTUI2 <- renderUI({
+    inFile <- input$TVT
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+    theta.frame <- readRDS(inFile)
+    max_value <- ncol(theta.frame) - 2
+    sliderInput("TVTTopic", label = "Sort by Topic", min = 1, max = max_value, value = 1)
+  })
+  
+  output$ExpTVTUI3 <- renderUI({
+    inFile <- input$TVT
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+    theta.frame <- readRDS(inFile)
+    max_value <- ncol(theta.frame) - 2
+    sliderInput("TVTTopic2", label = "Compare Topic", min = 1, max = max_value, value = 1)
+  })
+  
+  ranges <- reactiveValues(x = NULL, y = NULL)
+  
+  output$ExpTVT <- renderPlot({
+    inFile <- input$TVT
+    inNumber <- input$TVTTopic
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+    if (is.null(inNumber))
+      return(NULL)
+    
+    theta.frame <- readRDS(inFile)
+    theta.frame <- as.data.frame(theta.frame)
+    topic <- inNumber + 2
+    theta.frame[,topic] <- as.numeric(levels(theta.frame[,topic]))[theta.frame[,topic]]
+    theta.frame <- theta.frame[with(theta.frame, order(-theta.frame[,topic])), ]
+    ggplot(data = theta.frame, aes(c(1:length(identifier)), theta.frame[,topic])) + 
+      labs(title = paste("Topic:", names(theta.frame)[topic]), x = "Section", y = "Topic Value") + 
+      geom_col() + coord_cartesian(xlim = ranges$x)
+  })
+  
+  output$ExpTVT2 <- renderPlot({
+    inFile <- input$TVT
+    inNumber <- input$TVTTopic
+    inNumber2 <- input$TVTTopic2
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+    if (is.null(inNumber))
+      return(NULL)
+    
+    if (is.null(inNumber2))
+      return(NULL)
+    
+    if (inNumber2 == inNumber)
+      return(NULL)
+    
+    theta.frame <- readRDS(inFile)
+    theta.frame <- as.data.frame(theta.frame)
+    topic <- inNumber + 2
+    topic2 <- inNumber2 + 2
+    theta.frame[,topic] <- as.numeric(levels(theta.frame[,topic]))[theta.frame[,topic]]
+    theta.frame <- theta.frame[with(theta.frame, order(-theta.frame[,topic])), ]
+    theta.frame[,topic2] <- as.numeric(levels(theta.frame[,topic2]))[theta.frame[,topic2]]
+    ggplot(data = theta.frame, aes(c(1:length(identifier)), theta.frame[,topic2])) + 
+      labs(title = paste("Topic:", names(theta.frame)[topic2]), x = "Section", y = "Topic Value") + 
+      geom_col() + coord_cartesian(xlim = ranges$x)
+  })
+  
+  observe({
+    brush <- input$ExpTVT_brush
+    if (!is.null(brush)) {
+      ranges$x <- c(brush$xmin, brush$xmax)
+      ranges$y <- c(brush$ymin, brush$ymax)
+      
+    } else {
+      ranges$x <- NULL
+      ranges$y <- NULL
+    }
+  })
   
   
 ##### 2.8. Downloads #####
