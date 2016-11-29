@@ -430,6 +430,33 @@ server <- function(input, output, session) {
     
     if (is.null(inFile))
       return(NULL)
+    
+    if (input$label == TRUE) {
+      withProgress(message = 'Reading Texts', value = 0, {
+        CSVcatalogue <- fread(inFile$datapath, header = input$header, sep = input$sep)
+      })
+      colnames(CSVcatalogue) <- c('identifier', 'text', 'label')
+      withProgress(message = 'Saving Binary...', value = 0, {
+        file_name <- unlist(strsplit(as.character(CSVcatalogue$identifier), ":", fixed = TRUE))[4]
+        foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+        foldername <- paste("./www/data", foldername, sep = "/")
+        dir.create(foldername, recursive = TRUE)
+        file_name1 <- paste(foldername, "/", file_name, "_labelled.rds", sep = "")
+        saveRDS(CSVcatalogue, file_name1)
+        CSVlabels <- levels(factor(CSVcatalogue$label))
+        incProgress(0.1, detail = "Produce data.frame")
+        CSVcatalogue <- as.data.frame(CSVcatalogue)
+        for (i in 1:length(CSVlabels)) {
+          CSVlabel <- CSVlabels[i]
+          incProgress(0.1, detail = paste("Export label", CSVlabel))
+          CSVcatalogue_labelled <- CSVcatalogue[which(CSVcatalogue$label == CSVlabel),]
+          file_name2 <- paste(foldername, "/", file_name, "_label_", CSVlabel,".rds", sep = "")
+          saveRDS(CSVcatalogue_labelled, file_name2)
+        }
+        
+      })
+      return(CSVcatalogue)
+    }
     withProgress(message = 'Reading Texts', value = 0, {
       CSVcatalogue <- fread(inFile$datapath, header = input$header, sep = input$sep)
     })
