@@ -11,7 +11,6 @@ library(data.table)
 library(stringr)
 library(plyr)
 library(ggplot2)
-library(Cairo)
 
 ##### 0.2. Functions #######
 
