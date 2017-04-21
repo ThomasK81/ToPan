@@ -196,7 +196,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                           sidebarLayout(
                             sidebarPanel(
                               uiOutput("MorphCorpusUI"),
-                              radioButtons("morph_method", label = "Method", choices = c("Morpheus API", "Local StemDictionary", "Server StemDictionary")),
+                              radioButtons("morph_method", label = "Method", choices = c("Morpheus API", "LatMor", "Local StemDictionary", "Server StemDictionary")),
                               uiOutput("MorphUI"),
                               actionButton("Morphgo", "Submit")
                             ),
@@ -336,19 +336,20 @@ server <- function(input, output, session) {
 ##### 2.1. Catalogues #######
 ##### 2.1.1. Output CTS API Corpus #######  
   output$CTSUI <- renderUI({
-    CTS.Rep <- "http://cts.perseids.org/api/cts/?request=GetCapabilities"
+    CTS.Rep <- "http://cts.dh.uni-leipzig.de/api/cts/?request=GetCapabilities"
     withProgress(message = "Contacting server...", {
       urns <- FetchCTSRep(CTS.Rep)
     })
-    selectInput("cts_urn", label = "CTS URN", choices = urns)
+    print(which(is.na(urns)))
+    selectInput("cts_urn", label = "CTS URN", choices = head(urns))
     })
   
   output$catalogue <- renderDataTable({
     if (input$apigo == 0)
       return()
     
-    baseURL <- "http://cts.perseids.org/api/cts/?request=GetPassage&urn="
-    reffURL <- "http://cts.perseids.org/api/cts/?request=GetValidReff&urn="
+    baseURL <- "http://cts.dh.uni-leipzig.de/api/cts/?request=GetPassage&urn="
+    reffURL <- "http://cts.dh.uni-leipzig.de/api/cts/?request=GetValidReff&urn="
     requestURN <- input$cts_urn
     
     withProgress(message = "Contacting server...", {
@@ -524,9 +525,9 @@ server <- function(input, output, session) {
         foldername <- paste("./www/data", foldername, sep = "/")
         dir.create(foldername, recursive = TRUE)
         file_name <- paste(foldername, "/", file_name, "TreebankParsed.rds", sep = "")
-        corpus <- corpus[,c(1,3)]
-        names(corpus) <- c("identifier", "text")
-        saveRDS(corpus[,c(1,3)], file_name)
+        parsed_corpus <- corpus[,c(1,3)]
+        names(parsed_corpus) <- c("identifier", "text")
+        saveRDS(parsed_corpus, file_name)
         corpus[,c(1,2)]
       })
     })
@@ -545,7 +546,7 @@ server <- function(input, output, session) {
     withProgress(message = 'Reading Texts', value = 0, {
       CSVcatalogue <- fread(inFile$datapath, header = TRUE, sep = "#")
     })
-    CSVcatalogue <- data.frame(CSVcatalogue$identifier, CSVcatalogue$passage)
+    CSVcatalogue <- data.frame(CSVcatalogue$Urn, CSVcatalogue$TextContent)
     colnames(CSVcatalogue) <- c('identifier', 'text')
     withProgress(message = 'Saving Binary...', value = 0, {
       file_name <- unlist(strsplit(as.character(CSVcatalogue[1,1]), ":", fixed = TRUE))[4]
@@ -571,7 +572,10 @@ server <- function(input, output, session) {
   
   output$MorphUI <- renderUI({
     if (input$morph_method == "Morpheus API") {
-      return(selectInput("morphlang", label = "Choose Languages", choices = c("Latin", "Greek", "Arabic"))) 
+      return(selectInput("morphlang", label = "Choose Language", choices = c("Latin", "Greek", "Arabic"))) 
+    }
+    if (input$morph_method == "LatMor") {
+      return(selectInput("latmorlang", label = "Only works for Latin", choices = c("Latin"))) 
     }
     if (input$morph_method == "Server StemDictionary") {
       #### find filenames .rds
@@ -583,6 +587,8 @@ server <- function(input, output, session) {
   morph <- reactive({
     if (input$Morphgo == 0)
       return()
+    if (input$morph_method == "LatMor")
+      return(latmor())
     if (input$morph_method == "Morpheus API")
       return(morpheus())
     if (input$morph_method == "Local StemDictionary")
@@ -771,6 +777,125 @@ server <- function(input, output, session) {
     return(corrected_corpus_df)
   })
   
+  latmor <- reactive({
+    inFile <- input$morph_corpus
+    
+    if (is.null(inFile))
+      return(NULL)
+    withProgress(message = 'Reading Texts', value = 0, {
+      corpus <- readRDS(inFile)
+    })
+    
+    research_corpus <- corpus$text
+    research_corpus <- factor(research_corpus)
+    identifier <- corpus[,1]
+    identifier <- factor(identifier)
+    
+    ### pre-processing:
+    
+    research_corpus <- preprocess_corpus(research_corpus)
+    
+    
+    ## produce dictionary for stemming:
+    
+    t1 <- Sys.time()
+    
+    ## tokenize on space and output as a list:
+    doc.list <- strsplit(research_corpus, "[[:space:]]+")
+    corpus_words <- unique(unlist(doc.list))
+    corpus_words <- sort(corpus_words)
+    
+    ## stemming
+    parsing2 <- function(x){
+      word_form <- x
+      withProgress(message = paste('Parsing ', word_form, ": ", round((match(word_form, corpus_words)-1)/length(corpus_words)*100, digits=2), '%'), value = 0, {
+        batch_command <- paste0("echo ", word_form," | fst-infl ./LatMor/latmor.a")
+        lemmata <- system(batch_command, intern = T)
+        lemmata <- lemmata[2:length(lemmata)]
+        if(length(grep("no result", lemmata)) != 0) {
+          lemmata <- word_form
+          incProgress(0.1, detail = "Return original form")
+          return(lemmata)
+        } 
+        else {
+          lemmata <- gsub("<.*$", "", lemmata)
+          lemmata <- tolower(lemmata)
+          lemmata <- unique(lemmata)
+          incProgress(0.1, detail = paste(x, " is ", lemmata))
+          return(lemmata)
+        }
+      })
+    }
+    
+    stem_dictionary <- sapply(corpus_words, parsing2)
+    file_name <- paste("./www/", "LatMorStemDic", ".rds", sep = "")
+    saveRDS(stem_dictionary, file_name)
+    
+    ## Produce CSV Stem-Dictionary
+    
+    stem_dictionary_CSV <- vapply(stem_dictionary, 
+                                  function(x){result <- paste(x, collapse = ";")
+                                  return(result)
+                                  },
+                                  character(1))
+    stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
+    colnames(stem_dictionary_CSV) <- c("form", "lemmata")
+    write.csv(stem_dictionary_CSV, file = "./www/latmor_stemdic.csv")
+    
+    ### Normalise Corpus
+    
+    lemmatiser <- function(x){
+      lemmatised <- stem_dictionary[[x]]
+      return(lemmatised)}
+    
+    choose_lemma <- function(x){
+      if (is.null(x))
+        return(x)
+      lemma <- names(which(NumberOccurrences[x]==max(NumberOccurrences[x])))
+      if (length(lemma)==1) {return(lemma)
+      }
+      else {return (x[1])}
+    }
+    temp <- strsplit(research_corpus, " ")
+    temp_correct <- list()
+    for (i in 1:length(temp)) {
+      temp_correct[[i]] <- sapply(temp[[i]], lemmatiser) 
+    }
+    NumberOccurrences <- table(unlist(temp_correct))
+    
+    corrected_corpus <- list()
+    for (n in 1:length(temp_correct)) {
+      temp_corrected <- list()
+      counter <- n
+      for (i in 1:length(temp_correct[[counter]])) {
+        if (is.null(temp_correct[[counter]][[i]])) {
+          temp_corrected[[i]] <- names(temp_correct[[counter]][i])
+        } else {
+          temp_corrected[[i]] <- choose_lemma(temp_correct[[counter]][[i]]) 
+        }  
+      }  
+      corrected_corpus[[n]] <- temp_corrected
+    }
+    
+    for (i in 1:length(corrected_corpus)) {
+      corrected_corpus[[i]] <- paste(unlist(corrected_corpus[[i]]), collapse=" ")
+    }
+    research_corpus <- unlist(corrected_corpus)
+    corrected_corpus_df <- data.frame(identifier, research_corpus)
+    colnames(corrected_corpus_df) <- c('identifier', 'text')
+    
+    withProgress(message = 'Saving Binary...', value = 0, {
+      file_name <- unlist(strsplit(as.character(corrected_corpus_df[1,1]), ":", fixed = TRUE))[4]
+      foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+      foldername <- paste("./www/data", foldername, sep = "/")
+      dir.create(foldername, recursive = TRUE)
+      file_name <- paste(foldername, "/", file_name, "-LatMorParsed.rds", sep = "")
+      saveRDS(corrected_corpus_df, file_name)
+    })
+    
+    return(corrected_corpus_df)
+  })
+  
   morpheus <- reactive({
     
     morpheusURL <- "https://services.perseids.org/bsp/morphologyservice/analysis/word?word="
@@ -831,7 +956,7 @@ server <- function(input, output, session) {
     }
     
     stem_dictionary <- sapply(corpus_words, parsing)
-    file_name <- paste("./www/", "StemDic", ".rds", sep = "")
+    file_name <- paste("./www/", "MorpheusStemDic", ".rds", sep = "")
     saveRDS(stem_dictionary, file_name)
     ## Produce CSV Stem-Dictionary
     
@@ -842,7 +967,7 @@ server <- function(input, output, session) {
                                   character(1))
     stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
     colnames(stem_dictionary_CSV) <- c("form", "lemmata")
-    write.csv(stem_dictionary_CSV, file = "./www/stemdic.csv")
+    write.csv(stem_dictionary_CSV, file = "./www/Morpheus_stemdic.csv")
     
     ### Normalise Corpus
     
