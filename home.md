@@ -1,6 +1,6 @@
-##### (Meletē)ToPān v.0.1
+##### (Meletē)ToPān v.0.3
 
-The name (Meletē)ToPān v.0.1 is based on the Greek principle μελέτη τὸ πᾶν, which roughly translates as "take everything into consideration". Topic modelling helps select the interesting bits from a large corpus of texts while technically having processed every document.
+The name (Meletē)ToPān v.0.3 is based on the Greek principle μελέτη τὸ πᾶν, which roughly translates as "take everything into consideration". Topic modelling helps select the interesting bits from a large corpus of texts while technically having processed every document.
 
 ToPān is topic modelling for everyone: from people without programming knowledge to people who want to build teaching and text-reuse tools and apps based on topic modelling data without having to develop their own tool or having to majorly restructure their textual data. ToPān is made to be shared and used. This is why I have modularised ToPān in such a way that in each step you can ingest your own data. It works best however, if you work your way from left to right: from "Data Input" to "LDA Tables" (please find more details under "Instructions"). ToPān works best with files that are structured according to the <a href="http://cite-architecture.github.io" target="_blank">CTS/CITE architecture</a>.
 

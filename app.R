@@ -97,7 +97,7 @@ fetch_passage <- function(x, y){
 
 ##### 1. User Interface #######
 
-ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height = "25"), "ToPān v.0.2"), windowTitle = "ToPān v.0.2 (beta)",
+ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height = "25"), "ToPān v.0.3"), windowTitle = "ToPān v.0.3 (beta)",
 ##### 1.0.1. Home #######
                  tabPanel("Home",
                           fluidRow(column(4, br(), div(img(src = "melete.png", height = "200"))),
@@ -209,7 +209,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                           sidebarLayout(
                             sidebarPanel(
                               uiOutput("SWCorpusUI"),
-                              sliderInput("stopnumber", label = "Number of Stopwords", min = 0, max = 400, value = 200),
+                              numericInput("stopnumber", label = "Number of Stopwords", min = 0, max = 400, value = 200),
                               textInput("add_stopwords", label = "Additional Stopwords", value = ""),
                               textInput("remove_stopwords", label = "Remove Words from Stopword list", value = ""),
                               actionButton("stopwordgo", "Submit")
@@ -225,12 +225,13 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                             sidebarPanel(
                               uiOutput("ProcessTM"),
                               uiOutput("ProcessSW"),
-                              sliderInput("occurrence", label = "Occurrence threshold", min = 1, max = 5, value = 3),
-                              sliderInput("number_topics", label = "Number of Topics", min = 2, max = 25, value = 15),
-                              sliderInput("alpha", label = "Alpha", min = 0.00, max = 0.10, value = 0.02),
-                              sliderInput("eta", label = "Eta", min = 0.00, max = 0.10, value = 0.02),
-                              sliderInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
-                              sliderInput("iterations", label = "Iterations", min = 500, max = 5000, value = 500),
+                              numericInput("occurrence", label = "Occurrence threshold", min = 1, max = 5, value = 3),
+                              numericInput("seed", label = "Seed", min = 1, max = 1000, value = 73),
+                              numericInput("number_topics", label = "Number of Topics", min = 2, max = 200, value = 20),
+                              sliderInput("alpha", label = "Alpha", min = 0.00, max = 1.00, value = 0.02),
+                              sliderInput("eta", label = "Eta", min = 0.00, max = 1.00, value = 0.02),
+                              numericInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
+                              numericInput("iterations", label = "Iterations", min = 50, max = 5000, value = 500),
                               actionButton("TMgo", "Submit")
                             ),
                             mainPanel(
@@ -1031,7 +1032,7 @@ server <- function(input, output, session) {
   output$VISUI <- renderUI({
     ServerTM <- list.files(path = "./www", pattern = "index.html", recursive = TRUE, full.names = TRUE)
     ServerTM <- gsub("./www", "", ServerTM, fixed = TRUE)
-    selectInput("TModel", label = "Choose TM", choices = ServerTM)
+    selectInput("TModel", label = "Choose TM", choices = ServerTM, width = "100%")
   })
   
   output$topicmodels <- renderUI({
@@ -1173,7 +1174,7 @@ server <- function(input, output, session) {
     
     # Fit the model:
     withProgress(message = "Modelling (this may take a while)...", {
-      seed <- 73
+      seed <- input$seed
       set.seed(seed)
       K <- input$number_topics
       iterations <- input$iterations
@@ -1270,7 +1271,7 @@ server <- function(input, output, session) {
   output$thetaUI <- renderUI({
     ServerTheta <- list.files(path = "./www", pattern = "theta.csv", recursive = TRUE, full.names = TRUE)
     names(ServerTheta) <- sapply(strsplit(ServerTheta, "/"), function(x) {x[length(x)-1]})
-    selectInput("ThetaTable", label = "Choose TM", choices = ServerTheta)
+    selectInput("ThetaTable", label = "Choose TM", choices = ServerTheta, width = "100%")
     })
   
   output$theta <- renderDataTable({
@@ -1289,7 +1290,7 @@ server <- function(input, output, session) {
   output$phiUI <- renderUI({
     ServerPhi <- list.files(path = "./www", pattern = "phi.csv", recursive = TRUE, full.names = TRUE)
     names(ServerPhi) <- sapply(strsplit(ServerPhi, "/"), function(x) {x[length(x)-1]})
-    selectInput("PhiTable", label = "Choose TM", choices = ServerPhi)
+    selectInput("PhiTable", label = "Choose TM", choices = ServerPhi, width = "100%")
     })
 
   output$phi <- renderDataTable({
