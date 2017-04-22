@@ -104,12 +104,12 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                    column(8, includeMarkdown("home.md")))),                 
                  tabPanel("Instructions",
                           sidebarLayout(sidebarPanel(br(), h6("Instructions"),
-                                                     actionLink("data_link", "1. Entering the Data"), br(),
-                                                     actionLink("morph_link", "2. Morphological Normalisation"), br(),
-                                                     actionLink("tm_link", "3. Setting the TM Values"), br(),
-                                                     actionLink("results_link", "4. Understanding the Results"), br(), br(),
-                                                     actionLink("copyright_link", "Copyright Note")),
-                                        mainPanel(htmlOutput("markdownfile")))),
+                            selectInput("section",
+                                        label= "Section",
+                                        choices= c("DataEntry", "Morph.Normalisation", "TM.Values", "Results", "Copyright"),
+                                        selected= "DataEntry"
+                            )),
+                                        mainPanel(uiOutput("markdownfile")))),
 ##### 1.1. DATA INPUT #######                
                  navbarMenu("Data Input",
 ##### 1.1.1. CTS API INPUT #######
@@ -334,6 +334,19 @@ server <- function(input, output, session) {
   
   options(shiny.maxRequestSize=30*1024^2)
 
+##### 2.0. Instructions #######
+  output$markdownfile <- renderUI({
+    file <- switch(input$section,
+                   DataEntry = "dataentry.md",
+                   Morph.Normalisation = "morphologicalnormalisation.md",
+                   TM.Values = "settingtmvalues.md",
+                   Results = "understandingresults.md",
+                   Copyright = "copyright.md",
+                   stop("Unknown option")
+    )
+    includeMarkdown(file)
+  })
+  
 ##### 2.1. Catalogues #######
 ##### 2.1.1. Output CTS API Corpus #######  
   output$CTSUI <- renderUI({
