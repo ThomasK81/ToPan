@@ -167,6 +167,25 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                        mainPanel(
                                          dataTableOutput("catalogue4")
                                        ))),
+##### 1.1.4.2 CEX INPUT #######
+tabPanel("CEX",
+         sidebarLayout(
+           sidebarPanel(
+             fileInput('fileCEX', 'Choose CEX File',
+                       accept=c('text/csv', 
+                                'text/comma-separated-values,text/plain', 
+                                '.cex',
+                                '.CEX')),
+             radioButtons('sepCEX', 'Separator',
+                          c(Comma=',',
+                            Hash='#',
+                            Tab='\t'),
+                          '#'),
+             actionButton("CEXgo", "Submit")
+           ),
+           mainPanel(
+             dataTableOutput("catalogueCEX")
+           ))),
 ##### 1.1.5. TREEBANK XML INPUT #######
                             tabPanel("TreeBank XML",
                                      sidebarLayout(
@@ -482,6 +501,32 @@ server <- function(input, output, session) {
       foldername <- paste("./www/data", foldername, sep = "/")
       dir.create(foldername, recursive = TRUE)
       file_name <- paste(foldername, "/", file_name, ".rds", sep = "")
+      saveRDS(CSVcatalogue, file_name)
+    })
+    CSVcatalogue
+  })
+
+  ##### 2.1.4.1 Output CEX Corpus #######
+  
+  output$catalogueCEX <- renderDataTable({
+    if (input$CEXgo == 0)
+      return()
+
+    inFile <- input$fileCEX
+    
+    if (is.null(inFile))
+      return(NULL)
+
+    withProgress(message = 'Reading Texts', value = 0, {
+      CSVcatalogue <- fread(inFile$datapath, sep = input$sepCEX, skip="#!ctsdata")
+    })
+    colnames(CSVcatalogue) <- c('identifier', 'text')
+    withProgress(message = 'Saving Binary...', value = 0, {
+      file_name <- unlist(strsplit(as.character(CSVcatalogue$identifier), ":", fixed = TRUE))[4]
+      foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
+      foldername <- paste("./www/data", foldername, sep = "/")
+      dir.create(foldername, recursive = TRUE)
+      file_name <- paste(foldername, "/CEX_", file_name, ".rds", sep = "")
       saveRDS(CSVcatalogue, file_name)
     })
     CSVcatalogue
