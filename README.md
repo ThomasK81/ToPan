@@ -10,11 +10,9 @@ ToPān is also still under active development. This is an alpha release. More fe
 
 *Technical Note: ToPān is written in RShiny and uses the following R-libraries: shiny, RCurl (also I mainly switch to httr, because of RCurl's mysterious errors and performance issues when sending lots and lots of requests), XML (but also install XML2), httr (and curl), lda, LDAvis. If you want to install a local version of ToPān, simply clone the  <a href="https://github.com/ThomasK81/ToPan" target="_blank">repo</a>, install R, RStudio, and the mentioned libraries and Bob's your uncle.*
 
-## (Meletē)ToPān v.0.3 in action
+## (Meletē)ToPān v.0.3 in Action
 
-The beginnings of *ToPān* are rooted for the many [INNZ topic models](http://thomask81.github.io/INNZ_tm_vis/index.html#topic=5&lambda=0.6&term=) I have built and visualised with Sievert's [LDAvis package](https://cran.r-project.org/web/packages/LDAvis/index.html). From there I have applied those skills to Latin and [Ancient Greek](http://thomask81.github.io/Greek_vis/index.html#topic=4&lambda=0.58&term=) and [translations](http://thomask81.github.io/GreekTrans_vis/index.html#topic=4&lambda=0.58&term=). Interest from a multiple of other scholars dealing with historical languages arose and I summarised some early observations in a [blog]() and further applied topic modelling results to create Ancient Greek [teaching apps]() that were used when teaching Thucydides at Tufts University.
-
-<iframe src="https://thomask81.shinyapps.io/TopicModellingBrowser/" style="border: none; width: 440px; height: 900px"></iframe>
+The beginnings of *ToPān* are rooted for the many [INNZ topic models](http://thomask81.github.io/INNZ_tm_vis/index.html#topic=5&lambda=0.6&term=) I have built and visualised with Sievert's [LDAvis package](https://cran.r-project.org/web/packages/LDAvis/index.html) and [shinyapps](https://thomask81.shinyapps.io/TopicModellingBrowser/). From there I have applied those skills to Latin and [Ancient Greek](http://thomask81.github.io/Greek_vis/index.html#topic=4&lambda=0.58&term=) and [translations](http://thomask81.github.io/GreekTrans_vis/index.html#topic=4&lambda=0.58&term=) as well as employed topic modelling results to build an Ancient Greek [teaching app](https://thomask81.shinyapps.io/sightreading_app/) that was used in teaching Thucydides at Tufts University. Interest from a multiple other scholars dealing with historical languages arose and I summarised some early observations in a [blog](http://www.dh.uni-leipzig.de/wo/topic-modelling-of-historical-languages-in-r/) to enable other scholars to employ similar methods. It was clear that 
 
 ### 
 
