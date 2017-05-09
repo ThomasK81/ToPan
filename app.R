@@ -33,10 +33,14 @@ preprocess_corpus <- function(x) {
 FetchCTSRep <- function(x) {
   input <- read_xml(x)
   incProgress(0.1, detail = "Retrieving identifiers...")
-  urns <- xml_attrs(xml_find_all(xml_ns_strip(input), "//ti:edition"))
-  urns <- lapply(urns, "[[", 1)
+  urns <- xml_attrs(xml_find_all(xml_ns_strip(input), "//edition"))
+  urns <- lapply(urns, "[[", "urn")
+  urns <- unlist(urns)
   incProgress(0.1, detail = "Retrieving metadata")
-  descriptions <- xml_text(xml_find_all(xml_ns_strip(input), "//ti:edition/ti:description"))
+  descriptions <- xml_text(xml_find_all(xml_ns_strip(input), "//edition/description"))
+  #remove this eventually only there because of faulty CTS api
+  urns <- urns[1:1000]
+  descriptions <- descriptions[1:1000]
   names(urns) <- descriptions
   return(urns)
 }
@@ -101,15 +105,19 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
 ##### 1.0.1. Home #######
                  tabPanel("Home",
                           fluidRow(column(4, br(), div(img(src = "melete.png", height = "200"))),
-                                   column(8, includeMarkdown("home.md")))),                 
+                                   column(8, includeMarkdown("home.md")))),
+                  tabPanel("News",
+                           fluidRow(column(4, br(), div(img(src = "melete.png", height = "200"))),
+                                    column(8, uiOutput("markdownfile2")))),
                  tabPanel("Instructions",
-                          sidebarLayout(sidebarPanel(br(), h6("Instructions"),
+                          sidebarLayout(sidebarPanel(br(), h5("Instructions"),
                             selectInput("section",
                                         label= "Section",
                                         choices= c("DataEntry", "Morph.Normalisation", "TM.Values", "Results", "Copyright"),
                                         selected= "DataEntry"
                             )),
                                         mainPanel(uiOutput("markdownfile")))),
+
 ##### 1.1. DATA INPUT #######                
                  navbarMenu("Data Input",
 ##### 1.1.1. CTS API INPUT #######
@@ -127,7 +135,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                             tabPanel("Local CAPITainS", 
                                      sidebarLayout(
                                        sidebarPanel(
-                                         textInput("api_url", label = "API URL", value = "http://192.168.99.100:32778/api/cts/?request="),
+                                         textInput("api_url", label = "API URL", value = "http://192.168.99.100:32778/api/cts?request="),
                                          textInput("api_cts_urn", label = "CTS URN", value = ""),
                                          actionButton("CAPITAINSgo", "Submit")
                                        ),
@@ -366,23 +374,27 @@ server <- function(input, output, session) {
     includeMarkdown(file)
   })
   
+  output$markdownfile2 <- renderUI({
+    includeMarkdown("blog.md")
+  })
+  
 ##### 2.1. Catalogues #######
 ##### 2.1.1. Output CTS API Corpus #######  
   output$CTSUI <- renderUI({
-    CTS.Rep <- "http://cts.dh.uni-leipzig.de/api/cts/?request=GetCapabilities"
+    CTS.Rep <- "http://cts.dh.uni-leipzig.de/api/cts?request=GetCapabilities"
     withProgress(message = "Contacting server...", {
       urns <- FetchCTSRep(CTS.Rep)
     })
     print(which(is.na(urns)))
-    selectInput("cts_urn", label = "CTS URN", choices = head(urns))
+    selectInput("cts_urn", label = "CTS URN", choices = head(urns)) #remove head eventually
     })
   
   output$catalogue <- renderDataTable({
     if (input$apigo == 0)
       return()
     
-    baseURL <- "http://cts.dh.uni-leipzig.de/api/cts/?request=GetPassage&urn="
-    reffURL <- "http://cts.dh.uni-leipzig.de/api/cts/?request=GetValidReff&urn="
+    baseURL <- "http://cts.dh.uni-leipzig.de/api/cts?request=GetPassage&urn="
+    reffURL <- "http://cts.dh.uni-leipzig.de/api/cts?request=GetValidReff&urn="
     requestURN <- input$cts_urn
     
     withProgress(message = "Contacting server...", {
@@ -506,7 +518,7 @@ server <- function(input, output, session) {
     CSVcatalogue
   })
 
-  ##### 2.1.4.1 Output CEX Corpus #######
+##### 2.1.4.1 Output CEX Corpus #######
   
   output$catalogueCEX <- renderDataTable({
     if (input$CEXgo == 0)
@@ -1196,7 +1208,7 @@ server <- function(input, output, session) {
     
     output_names <- as.character(research_corpus$identifier)
     research_corpus <- as.character(research_corpus$text)
-    
+
     withProgress(message = "Normalise IDs...", {output_names <- gsub("^[[:space:]]+", "", output_names) # remove whitespace at beginning of documents
     output_names <- gsub("[[:space:]]+$", "", output_names) # remove whitespace at end of documents
     output_names <- gsub("[[:space:]]+", " ", output_names) # remove multiple whitespace
@@ -1318,6 +1330,25 @@ server <- function(input, output, session) {
       saveRDS(theta, file = theta_folder)
       saveRDS(fit, file = lda_folder)
       write.csv(theta, file = theta_CSVfolder)
+      
+      #ctm_file
+      temp <- as.character(research_corpus$text)
+      sink("./www/test.ctm")
+      cat("#!ctsdata")
+      cat("\n")
+      for(i in 1:length(output_names)){
+        cat(paste0(output_names[i], "#", temp[i]))
+        cat("\n")
+      }
+      cat("#!word_index")
+      cat("\n")
+      cat(vocab)
+      cat("\n")
+      cat("#!theta")
+      cat("\n")
+      cat("#!phi")
+      cat("\n")
+      sink()
     })
     
     research_corpus
