@@ -1,3 +1,8 @@
+##### Log File
+
+ToPan.log <- file("ToPan.log", open = "wt")
+sink(ToPan.log , type = c("message"))
+
 ##### 0.1, Libraries #######
 
 library(shiny)
@@ -252,6 +257,7 @@ tabPanel("CEX",
                             sidebarPanel(
                               uiOutput("ProcessTM"),
                               uiOutput("ProcessSW"),
+                              textInput("CTMfile", label = "Name your ctm-File", value = "", placeholder = "output_filename"),
                               numericInput("occurrence", label = "Occurrence threshold", min = 1, max = 5, value = 3),
                               numericInput("seed", label = "Seed", min = 1, max = 1000, value = 73),
                               numericInput("number_topics", label = "Number of Topics", min = 2, max = 200, value = 20),
@@ -448,6 +454,7 @@ server <- function(input, output, session) {
     ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
     ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
     ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
+    ServerCorpora <- ServerCorpora[which(grepl("lda.rds", ServerCorpora, fixed = TRUE) == FALSE)]
     names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
     selectInput("serverRDS", label = "Choose RDS file", choices = ServerCorpora)
     })
@@ -637,6 +644,7 @@ server <- function(input, output, session) {
     ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
     ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
     ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
+    ServerCorpora <- ServerCorpora[which(grepl("lda.rds", ServerCorpora, fixed = TRUE) == FALSE)]
     names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
     selectInput("morph_corpus", label = "Choose RDS file", choices = ServerCorpora)
   })
@@ -1120,6 +1128,7 @@ server <- function(input, output, session) {
     ServerCorpora <- ServerCorpora[which(grepl("Stopword", ServerCorpora) == FALSE)]
     ServerCorpora <- ServerCorpora[which(grepl("theta.rds", ServerCorpora, fixed = TRUE) == FALSE)]
     ServerCorpora <- ServerCorpora[which(grepl("phi.rds", ServerCorpora, fixed = TRUE) == FALSE)]
+    ServerCorpora <- ServerCorpora[which(grepl("lda.rds", ServerCorpora, fixed = TRUE) == FALSE)]
     names(ServerCorpora) <- sapply(strsplit(ServerCorpora, "/"), function(x) {x[length(x)]})
     selectInput("sw_corpus", label = "Choose RDS file", choices = ServerCorpora)
   })
@@ -1175,6 +1184,9 @@ server <- function(input, output, session) {
   output$ProcessTM <- renderUI({
     ServerTM <- list.files(path = "./www", pattern = ".rds", recursive = TRUE, full.names = TRUE)
     ServerTM <- ServerTM[which(grepl("Stopword", ServerTM) == FALSE)]
+    ServerTM <- ServerTM[which(grepl("theta.rds", ServerTM, fixed = TRUE) == FALSE)]
+    ServerTM <- ServerTM[which(grepl("phi.rds", ServerTM, fixed = TRUE) == FALSE)]
+    ServerTM <- ServerTM[which(grepl("lda.rds", ServerTM, fixed = TRUE) == FALSE)]
     names(ServerTM) <- sapply(strsplit(ServerTM, "/"), function(x) {x[length(x)]})
     selectInput("tm_corpus", label = "Choose Corpus", choices = ServerTM)
   })
@@ -1187,6 +1199,12 @@ server <- function(input, output, session) {
   })
   
   output$topicmodelling <- renderDataTable({
+    
+    req(input$CTMfile)
+    CTMfilename <- gsub("[^a-zA-Z0-9]", "", input$CTMfile)
+    TMvariables <- paste0("K", input$number_topics, "_alpha", gsub("[^a-zA-Z0-9]", "", input$alpha), "_eta", gsub("[^a-zA-Z0-9]", "", input$eta), "_I", input$iterations, "_S", input$seed)
+    CTMfilename <- paste0("./www/CTM/", CTMfilename, "-", TMvariables, ".ctm")
+
     if (input$TMgo == 0)
       return()
     
@@ -1224,6 +1242,8 @@ server <- function(input, output, session) {
       term.table <- sort(term.table, decreasing = TRUE)
       occurences <- input$occurrence
       del <- names(term.table) %in% stop_words | term.table < occurences
+      stopwords <- term.table[del]
+      stopwords <- names(stopwords)
       term.table <- term.table[!del]
       vocab <- names(term.table)
       
@@ -1333,20 +1353,47 @@ server <- function(input, output, session) {
       
       #ctm_file
       temp <- as.character(research_corpus$text)
-      sink("./www/test.ctm")
+      sink(CTMfilename)
+      cat("#!TM_variables")
+      cat("\n")
+      cat(TMvariables)
+      cat("\n")
+      cat("Occurrence:", input$occurrence)
+      cat("\n\n")
       cat("#!ctsdata")
       cat("\n")
       for(i in 1:length(output_names)){
         cat(paste0(output_names[i], "#", temp[i]))
         cat("\n")
       }
+      cat("\n")
+      cat("#!stop_words")
+      cat("\n") 
+      cat(stopwords)
+      cat("\n\n")
       cat("#!word_index")
       cat("\n")
       cat(vocab)
+      cat("\n\n")
+      cat("#!assignments")
+      cat("\n")
+      for(i in 1:length(output_names)){
+        cat(paste0(output_names[i], "#", paste(fit$assignments[[i]], collapse = ",")))
+        cat("\n")
+      }
       cat("\n")
       cat("#!theta")
       cat("\n")
+      sink()
+      write.table(theta, append = T, file = CTMfilename, row.names = F, quote = F, sep = "#")
+      sink(CTMfilename, append = T)
+      cat("\n")
       cat("#!phi")
+      cat("\n")
+      cat("token#")
+      sink()
+      write.table(phi, append = T, file = CTMfilename, quote = F, sep = "#")
+      sink(CTMfilename, append = T)
       cat("\n")
       sink()
     })
@@ -1568,6 +1615,7 @@ server <- function(input, output, session) {
     ServerCorpus <- ServerCorpus[which(grepl("Stopword", ServerCorpus) == FALSE)]
     ServerCorpus <- ServerCorpus[which(grepl("theta.rds", ServerCorpus, fixed = TRUE) == FALSE)]
     ServerCorpus <- ServerCorpus[which(grepl("phi.rds", ServerCorpus, fixed = TRUE) == FALSE)]
+    ServerCorpus <- ServerCorpus[which(grepl("lda.rds", ServerCorpus, fixed = TRUE) == FALSE)]
     names(ServerCorpus) <- sapply(strsplit(ServerCorpus, "/"), function(x) {x[length(x)]})
     selectInput("download_corpus", label = "Corpus", choices = ServerCorpus)
   })

@@ -1,0 +1,13 @@
+Warning in dir.create(paste(folder, "_tab", sep = ""), recursive = TRUE) :
+  './www/data/phi0972/phi001_MF100_K20_alph002_eta002_I500_S73_tab' already exists
+Warning in dir.create(visfolder, recursive = TRUE) :
+  './www/data/phi0972/phi001_MF100_K20_alph002_eta002_I500_S73_vis' already exists
+Warning in dir.create(ldafolder, recursive = TRUE) :
+  './www/data/phi0972/phi001_MF100_K20_alph002_eta002_I500_S73_mod' already exists
+Warning in dir.create(out.dir) :
+  './www/data/phi0972/phi001_MF100_K20_alph002_eta002_I500_S73_vis' already exists
+Warning in write.table(theta, append = T, file = CTMfilename, row.names = F,  :
+  appending column names to file
+Warning in write.table(phi, append = T, file = CTMfilename, quote = F, sep = "#") :
+  appending column names to file
+
