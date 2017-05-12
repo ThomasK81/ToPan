@@ -230,6 +230,7 @@ tabPanel("CEX",
                               uiOutput("MorphCorpusUI"),
                               radioButtons("morph_method", label = "Method", choices = c("Morpheus API", "LatMor", "Local StemDictionary", "Server StemDictionary")),
                               uiOutput("MorphUI"),
+                              textInput("stemdicfm", label = "Name your dictionary", value = "stemdic", placeholder = "stemdic"),
                               actionButton("Morphgo", "Submit")
                             ),
                             mainPanel(
@@ -660,7 +661,7 @@ server <- function(input, output, session) {
       #### find filenames .rds
       return(selectInput("stemdic", label = "Choose StemDictionary", choices = list.files(path = "./www", pattern = "StemDic*.rds", recursive = TRUE, full.names = TRUE)))
     }
-    fileInput('stemdic', 'Choose StemDictionary', accept=c('.rds'))
+    fileInput('stemdic', 'Choose StemDictionary', accept=c('.csv'))
   })
   
   morph <- reactive({
@@ -678,6 +679,9 @@ server <- function(input, output, session) {
   
   serverStemDic <- reactive({
     
+    req(input$stemdicfm)
+    sdfm <- gsub("[^a-zA-Z0-9]", "", input$stemdicfm)
+    sdfm <- paste0("./www/Dictionaries/", sdfm, ".csv")
     inFile <- input$stemdic
     
     if (is.null(inFile))
@@ -695,7 +699,7 @@ server <- function(input, output, session) {
                                   character(1))
     stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
     colnames(stem_dictionary_CSV) <- c("form", "lemmata")
-    write.csv(stem_dictionary_CSV, file = "./www/stemdic.csv")
+    write.csv(stem_dictionary_CSV, file = sdfm)
     
     ## Read in corpus
     
@@ -759,7 +763,7 @@ server <- function(input, output, session) {
       foldername <- paste(unlist(strsplit(file_name, ".", fixed = TRUE)), sep = "", collapse = "/")
       foldername <- paste("./www/data", foldername, sep = "/")
       dir.create(foldername, recursive = TRUE)
-      file_name <- paste(foldername, "/", file_name, "-LocStemDicParsed.rds", sep = "")
+      file_name <- paste(foldername, "/", file_name, "-ServerStemDicParsed.rds", sep = "")
       saveRDS(corrected_corpus_df, file_name)
     })
     
@@ -773,21 +777,12 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      stem_dictionary <- readRDS(inFile$datapath)
+      stem_dictionary <- fread(inFile$datapath)
     })
-    
-    ## Produce CSV Stem-Dictionary
-    
-    stem_dictionary_CSV <- vapply(stem_dictionary, 
-                                  function(x){result <- paste(x, collapse = ";")
-                                  return(result)
-                                  },
-                                  character(1))
-    stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
-    colnames(stem_dictionary_CSV) <- c("form", "lemmata")
-    write.csv(stem_dictionary_CSV, file = "./www/stemdic.csv")
-    
-    ## Read in corpus
+    temp_list <- strsplit(stem_dictionary$lemmata, ";", fixed = T)
+    names(temp_list) <- stem_dictionary$form
+    stem_dictionary <- temp_list
+    rm(temp_list)
     
     inFile <- input$morph_corpus
     
@@ -799,6 +794,7 @@ server <- function(input, output, session) {
     
     research_corpus <- corpus$text
     research_corpus <- as.character(research_corpus)
+    research_corpus <- tolower(research_corpus)
     identifier <- corpus[,1]
     identifier <- as.character(identifier)
     
@@ -857,6 +853,10 @@ server <- function(input, output, session) {
   })
   
   latmor <- reactive({
+    req(input$stemdicfm)
+    sdfm <- gsub("[^a-zA-Z0-9]", "", input$stemdicfm)
+    sdfm <- paste0("./www/Dictionaries/", sdfm, ".csv")
+    
     inFile <- input$morph_corpus
     
     if (is.null(inFile))
@@ -919,7 +919,7 @@ server <- function(input, output, session) {
                                   character(1))
     stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
     colnames(stem_dictionary_CSV) <- c("form", "lemmata")
-    write.csv(stem_dictionary_CSV, file = "./www/latmor_stemdic.csv")
+    write.csv(stem_dictionary_CSV, file = sdfm)
     
     ### Normalise Corpus
     
@@ -976,6 +976,10 @@ server <- function(input, output, session) {
   })
   
   morpheus <- reactive({
+    
+    req(input$stemdicfm)
+    sdfm <- gsub("[^a-zA-Z0-9]", "", input$stemdicfm)
+    sdfm <- paste0("./www/Dictionaries/", sdfm, ".csv")
     
     morpheusURL <- "https://services.perseids.org/bsp/morphologyservice/analysis/word?word="
     if (input$morphlang == "Latin") {
@@ -1046,7 +1050,7 @@ server <- function(input, output, session) {
                                   character(1))
     stem_dictionary_CSV <- data.frame(names(stem_dictionary_CSV), stem_dictionary_CSV)
     colnames(stem_dictionary_CSV) <- c("form", "lemmata")
-    write.csv(stem_dictionary_CSV, file = "./www/Morpheus_stemdic.csv")
+    write.csv(stem_dictionary_CSV, file = sdfm)
     
     ### Normalise Corpus
     
