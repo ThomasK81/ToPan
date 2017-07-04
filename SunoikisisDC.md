@@ -1,6 +1,6 @@
 #### Summary
 
-The session aims to give an humanities-friendly overview about a distant reading method called topic-modelling and its application to morphologically complex languages (e.g. Latin, Ancient Greek, Classical Arabic). It is divided into five sections. In the first section the session provides a short introduction of LDA Topic Modelling and then it presents its application in language teaching. Thirdly, it sheds light onto the challenges of topic modelling complex languages and demonstrates its execution on a bigger Latin corpus. In the last section a graphical user interface is presented to the audience that enables users to topic model any text without coding. While the tool can be used in any language, Latin and Greek texts in a valid CTS format are supported best.
+The session aims to give a humanities-friendly overview about the distant-reading method topic-modelling and its application to morphologically complex languages (e.g. Latin, Ancient Greek, Classical Arabic). It is divided into five sections. In the first section the session provides a short introduction to LDA Topic Modelling, before the second section presents its application in language teaching. Thirdly, it sheds light on the challenges of topic modelling complex languages and demonstrates its execution on a larger Latin corpus. In the last section a graphical user interface is presented, enabling users to topic model any text without coding. While the tool can be used on any language, Latin and Greek texts in a valid CTS format are supported best.
 
 #### Outline
 
@@ -26,7 +26,7 @@ The session aims to give an humanities-friendly overview about a distant reading
 1. Download and install [ToPan](https://github.com/ThomasK81/ToPan) and its dependencies (more on the link).
 2. Start it up.
 3. Ingest data (e.g. https://github.com/ThomasK81/ToPan/blob/master/caesar.csv or https://github.com/ThomasK81/ToPan/blob/master/Petronius.csv)
-4. If the data is in Latin or Greek, use morphologically normalisation.
+4. If the data is in Latin or Greek, use morphological normalisation.
 5. Run a topic model and explore the results.
 
  
