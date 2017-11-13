@@ -16,6 +16,7 @@ library(data.table)
 library(stringr)
 library(plyr)
 library(ggplot2)
+library(jsonlite)
 
 ##### 0.2. Functions #######
 
