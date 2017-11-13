@@ -43,10 +43,10 @@ FetchCTSRep <- function(x) {
   urns <- unlist(urns)
   incProgress(0.1, detail = "Retrieving metadata")
   descriptions <- xml_text(xml_find_all(xml_ns_strip(input), "//edition/description"))
-  #remove this eventually only there because of faulty CTS api
-  urns <- urns[1:1000]
-  descriptions <- descriptions[1:1000]
-  names(urns) <- descriptions
+  # error handling because of faulty CTS api
+  if (length(urns) == length(descriptions)) {
+    names(urns) <- descriptions
+  }
   return(urns)
 }
 
@@ -393,7 +393,7 @@ server <- function(input, output, session) {
       urns <- FetchCTSRep(CTS.Rep)
     })
     print(which(is.na(urns)))
-    selectInput("cts_urn", label = "CTS URN", choices = head(urns)) #remove head eventually
+    selectInput("cts_urn", label = "CTS URN", choices = urns) 
     })
   
   output$catalogue <- renderDataTable({
@@ -652,7 +652,7 @@ server <- function(input, output, session) {
   
   output$MorphUI <- renderUI({
     if (input$morph_method == "Morpheus API") {
-      return(selectInput("morphlang", label = "Choose Language", choices = c("Latin", "Greek", "Arabic"))) 
+      return(selectInput("morphlang", label = "Choose Language", choices = c("Latin", "Greek"))) 
     }
     if (input$morph_method == "LatMor") {
       return(selectInput("latmorlang", label = "Only works for Latin", choices = c("Latin"))) 
@@ -687,7 +687,7 @@ server <- function(input, output, session) {
     if (is.null(inFile))
       return(NULL)
     withProgress(message = 'Reading Texts', value = 0, {
-      stem_dictionary <- readRDS(inFile$datapath)
+      stem_dictionary <- readRDS(inFile)
     })
     
     ## Produce CSV Stem-Dictionary
@@ -981,15 +981,12 @@ server <- function(input, output, session) {
     sdfm <- gsub("[^a-zA-Z0-9]", "", input$stemdicfm)
     sdfm <- paste0("./www/Dictionaries/", sdfm, ".csv")
     
-    morpheusURL <- "https://services.perseids.org/bsp/morphologyservice/analysis/word?word="
     if (input$morphlang == "Latin") {
-      langurl <- "&lang=lat&engine=morpheuslat"
+      morpheusURL <- "http://morph.perseids.org/analysis/word?lang=lat&engine=morpheuslat&word="
     } else if (input$morphlang == "Greek") {
-      langurl <- "&lang=grc&engine=morpheusgrc"
-    } else if (input$morphlang == "Arabic") {
-      langurl <- "&lang=ara&engine=aramorph"
+      morpheusURL <- "http://morph.perseids.org/analysis/word?lang=grc&engine=morpheusgrc&word="
     }
-    
+  
     inFile <- input$morph_corpus
     
     if (is.null(inFile))
@@ -1000,7 +997,7 @@ server <- function(input, output, session) {
     
     research_corpus <- corpus$text
     research_corpus <- factor(research_corpus)
-    identifier <- corpus[,1]
+    identifier <- corpus$identifier
     identifier <- factor(identifier)
     
     ### pre-processing:
@@ -1021,9 +1018,13 @@ server <- function(input, output, session) {
     parsing <- function(x){
       word_form <- x
       withProgress(message = paste('Parsing ', word_form, ": ", round((match(word_form, corpus_words)-1)/length(corpus_words)*100, digits=2), '%'), value = 0, {
-        URL <- paste(morpheusURL, word_form, langurl, sep = "")
-        morph <- read_xml(URL)
-        lemmata <- xml_text(xml_find_all(morph, "//hdwd"))
+        URL <- URLencode(paste0(morpheusURL, word_form))
+        morph <- fromJSON(URL)
+        if (is.vector(morph$RDF$Annotation$Body$rest$entry$dict$hdwd)) {
+          lemmata <- morph$RDF$Annotation$Body$rest$entry$dict$hdwd$`$`
+        } else {
+          lemmata <- morph$RDF$Annotation$Body$rest$entry$dict$hdwd[,2]
+        }
         lemmata <- gsub("[0-9]", "", lemmata)
         lemmata <- tolower(lemmata)
         lemmata <- unique(lemmata)
