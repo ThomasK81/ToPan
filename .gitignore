@@ -1,3 +1,14 @@
+# exclude everything
+www/data/*
+www/CTM/* 
+www/Dictionaries/*
+
+# exception to the rule
+!www/data/.gitkeep
+!www/CTM/.gitkeep
+!www/Dictionaries/.gitkeep
+
+
 # Windows and Mac OS X
 Thumbs.db
 .DS_Store

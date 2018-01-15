@@ -367,7 +367,7 @@ tabPanel("CEX",
 
 server <- function(input, output, session) {
   
-  options(shiny.maxRequestSize=30*1024^2)
+  options(shiny.maxRequestSize=400*1024^2)
 
 ##### 2.0. Instructions #######
   output$markdownfile <- renderUI({
