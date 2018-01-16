@@ -2,6 +2,7 @@
 www/data/*
 www/CTM/* 
 www/Dictionaries/*
+models/*
 
 # exception to the rule
 !www/data/.gitkeep
