@@ -857,7 +857,6 @@ server <- function(input, output, session) {
     req(input$stemdicfm)
     sdfm <- gsub("[^a-zA-Z0-9]", "", input$stemdicfm)
     sdfm <- paste0("./www/Dictionaries/", sdfm, ".csv")
-    
     inFile <- input$morph_corpus
     
     if (is.null(inFile))
@@ -867,14 +866,14 @@ server <- function(input, output, session) {
     })
     
     research_corpus <- corpus$text
-    research_corpus <- factor(research_corpus)
+    # research_corpus <- factor(research_corpus)
     identifier <- corpus[,1]
-    identifier <- factor(identifier)
+    # identifier <- factor(identifier)
     
     ### pre-processing:
-    
+
     research_corpus <- preprocess_corpus(research_corpus)
-    
+
     
     ## produce dictionary for stemming:
     

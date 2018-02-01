@@ -1,13 +1,60 @@
-Loading required package: bitops
-data.table 1.10.4
-  The fastest way to learn (by data.table authors): https://www.datacamp.com/courses/data-analysis-the-data-table-way
-  Documentation: ?data.table, example(data.table) and browseVignettes("data.table")
-  Release notes, videos and slides: http://r-datatable.com
-
-Attaching package: ‘jsonlite’
-
-The following object is masked from ‘package:shiny’:
-
-    validate
-
-
+Warning in dir.create(foldername, recursive = TRUE) :
+  './www/data/pez/JB' already exists
+Warning in dir.create(foldername, recursive = TRUE) :
+  './www/data/pez/JB' already exists
+Warning: Error in stats::cmdscale: 'k' must be in {1, 2, ..  n - 1}
+Stack trace (innermost first):
+    85: stats::cmdscale
+    84: mds.method
+    83: createJSON
+    82: eval [/Users/koentges/Google Drive/ToPan/app.R#1296]
+    81: eval
+    80: withProgress
+    79: renderDataTable [/Users/koentges/Google Drive/ToPan/app.R#1285]
+    78: func
+    77: origRenderFunc
+    76: output$topicmodelling
+     1: runApp
+Warning in dir.create(out.dir) :
+  './www/data/pez/JB_MF100_K20_alph002_eta002_I1000_S73_vis' already exists
+Loading required namespace: servr
+Warning in write.table(theta, append = T, file = CTMfilename, row.names = F,  :
+  appending column names to file
+Warning in write.table(phi, append = T, file = CTMfilename, quote = F, sep = "#") :
+  appending column names to file
+Warning in dir.create(out.dir) :
+  './www/data/pez/JB_MF100_K23_alph002_eta002_I1000_S73_vis' already exists
+Warning in write.table(theta, append = T, file = CTMfilename, row.names = F,  :
+  appending column names to file
+Warning in write.table(phi, append = T, file = CTMfilename, quote = F, sep = "#") :
+  appending column names to file
+Warning in dir.create(foldername, recursive = TRUE) :
+  './www/data/pez/JB' already exists
+Warning in dir.create(out.dir) :
+  './www/data/pez/JB_MF101_K23_alph002_eta002_I1000_S73_vis' already exists
+Warning in write.table(theta, append = T, file = CTMfilename, row.names = F,  :
+  appending column names to file
+Warning in write.table(phi, append = T, file = CTMfilename, quote = F, sep = "#") :
+  appending column names to file
+Warning in dir.create(foldername, recursive = TRUE) :
+  './www/data/pez/JB' already exists
+Warning in dir.create(foldername, recursive = TRUE) :
+  './www/data/pez/JB' already exists
+Warning in dir.create(foldername, recursive = TRUE) :
+  './www/data/pez/JB' already exists
+Warning in dir.create(foldername, recursive = TRUE) :
+  './www/data/pez/JB' already exists
+Warning in dir.create(foldername, recursive = TRUE) :
+  './www/data/pez/JB' already exists
+Warning in dir.create(out.dir) :
+  './www/data/pez/JB_MF201_K73_alph002_eta002_I1000_S73_vis' already exists
+Warning in write.table(theta, append = T, file = CTMfilename, row.names = F,  :
+  appending column names to file
+Warning in write.table(phi, append = T, file = CTMfilename, quote = F, sep = "#") :
+  appending column names to file
+Warning in dir.create(out.dir) :
+  './www/data/pez/JB_MF200_K73_alph002_eta002_I1000_S73_vis' already exists
+Warning in write.table(theta, append = T, file = CTMfilename, row.names = F,  :
+  appending column names to file
+Warning in write.table(phi, append = T, file = CTMfilename, quote = F, sep = "#") :
+  appending column names to file
