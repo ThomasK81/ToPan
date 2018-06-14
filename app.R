@@ -17,6 +17,7 @@ library(stringr)
 library(plyr)
 library(ggplot2)
 library(jsonlite)
+library(tsne)
 
 ##### 0.2. Functions #######
 
@@ -266,6 +267,7 @@ tabPanel("CEX",
                               sliderInput("alpha", label = "Alpha", min = 0.00, max = 1.00, value = 0.02),
                               sliderInput("eta", label = "Eta", min = 0.00, max = 1.00, value = 0.02),
                               numericInput("number_terms", label = "Number of Terms Shown", min = 15, max = 50, value = 25),
+                              selectInput(inputId = "dimscale", label = "Choose a high-dimensional scaling method:", choices = c("pca", "tsne")),
                               numericInput("iterations", label = "Iterations", min = 50, max = 5000, value = 500),
                               actionButton("TMgo", "Submit")
                             ),
@@ -1291,14 +1293,25 @@ server <- function(input, output, session) {
                                      doc.length = doc.length,
                                      vocab = vocab,
                                      term.frequency = term.frequency)
-    
-    # create the JSON object to feed the visualization:
-    json <- createJSON(phi = research_corpusAbstracts$phi, 
-                       theta = research_corpusAbstracts$theta, 
-                       doc.length = research_corpusAbstracts$doc.length, 
-                       vocab = research_corpusAbstracts$vocab, 
-                       term.frequency = research_corpusAbstracts$term.frequency,
-                       R=number_terms)
+
+    if (input$dimscale == "tsne") {
+      svd_tsne <- function(x) tsne(svd(x)$u)
+      json <- createJSON(phi = research_corpusAbstracts$phi, 
+                         theta = research_corpusAbstracts$theta, 
+                         doc.length = research_corpusAbstracts$doc.length, 
+                         vocab = research_corpusAbstracts$vocab, 
+                         term.frequency = research_corpusAbstracts$term.frequency,
+                         R=number_terms,
+                         mds.method = svd_tsne, 
+                         plot.opts = list(xlab="", ylab=""))
+    } else { 
+      json <- createJSON(phi = research_corpusAbstracts$phi, 
+                         theta = research_corpusAbstracts$theta, 
+                         doc.length = research_corpusAbstracts$doc.length, 
+                         vocab = research_corpusAbstracts$vocab, 
+                         term.frequency = research_corpusAbstracts$term.frequency,
+                         R=number_terms)
+    }    
     })
     
     #Visualise and save
@@ -1314,7 +1327,7 @@ server <- function(input, output, session) {
     sw <- unlist(strsplit(unlist(strsplit(sw, "-", fixed = TRUE))[2], "Stop"))[1]
     folder <- paste(folder, "_", sw, "_K", K, "_alph", gsub(".", "", alpha, fixed = TRUE), "_eta", gsub(".", "", eta, fixed = TRUE), "_I", iterations, "_S", seed, sep = "")
     dir.create(paste(folder, "_tab", sep = ""), recursive = TRUE)
-    visfolder <- paste(folder, "_vis", sep = "")
+    visfolder <- paste(folder, "_", input$dimscale, "_vis", sep = "")
     dir.create(visfolder, recursive = TRUE)
     ldafolder <- paste(folder, "_mod", sep = "")
     dir.create(ldafolder, recursive = TRUE)
