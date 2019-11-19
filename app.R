@@ -554,7 +554,7 @@ server <- function(input, output, session) {
     })
     CSVcatalogue
   })
-  
+
 ##### 2.1.5. Output Treebank Corpus #######
   
   output$catalogue5 <- renderDataTable({
