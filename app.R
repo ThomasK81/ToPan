@@ -18,6 +18,7 @@ library(plyr)
 library(ggplot2)
 library(jsonlite)
 library(tsne)
+library(DT)
 
 ##### 0.2. Functions #######
 
@@ -31,8 +32,8 @@ preprocess_corpus <- function(x) {
   research_corpus <- gsub("[[:cntrl:]]", " ", research_corpus)  # replace control characters with space
   research_corpus <- trimws(research_corpus)
   research_corpus <-str_replace_all(research_corpus, "[\r\n]" , "")
-  research_corpus <- gsub("^ *|(?<= ) | *$", "", research_corpus, perl = TRUE) # Remove multiple whitespace
   research_corpus <- gsub("[0-9]", "", research_corpus) #remove numbers
+  research_corpus <- gsub("^ *|(?<= ) | *$", "", research_corpus, perl = TRUE) # Remove multiple whitespace
   return(research_corpus)
 }
 
@@ -135,7 +136,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                          actionButton("apigo", "Submit")
                                        ),
                                        mainPanel(
-                                         dataTableOutput("catalogue")
+                                         DTOutput("catalogue")
                                        )
                                      )),
 ##### 1.1.2. LOCAL CAPITAINS INPUT #######
@@ -147,7 +148,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                          actionButton("CAPITAINSgo", "Submit")
                                        ),
                                        mainPanel(
-                                         dataTableOutput("catalogue2")
+                                         DTOutput("catalogue2")
                                        ))),
 ##### 1.1.3. Server-Side RDS #######
                             tabPanel("Server-Side RDS",
@@ -157,7 +158,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                          actionButton("RDSgo", "Submit")
                                        ),
                                        mainPanel(
-                                         dataTableOutput("catalogue3")
+                                         DTOutput("catalogue3")
                                        ))),
 ##### 1.1.4. CSV INPUT #######
                             tabPanel("CSV",
@@ -180,7 +181,7 @@ ui <- navbarPage(theme = "bootstrap.min.css", div(img(src = "melete.png", height
                                          actionButton("CSVgo", "Submit")
                                        ),
                                        mainPanel(
-                                         dataTableOutput("catalogue4")
+                                         DTOutput("catalogue4")
                                        ))),
 ##### 1.1.4.2 CEX INPUT #######
 tabPanel("CEX",
@@ -199,7 +200,7 @@ tabPanel("CEX",
              actionButton("CEXgo", "Submit")
            ),
            mainPanel(
-             dataTableOutput("catalogueCEX")
+             DTOutput("catalogueCEX")
            ))),
 ##### 1.1.5. TREEBANK XML INPUT #######
                             tabPanel("TreeBank XML",
@@ -210,7 +211,7 @@ tabPanel("CEX",
                                          actionButton("Treebankgo", "Submit")
                                        ),
                                        mainPanel(
-                                         dataTableOutput("catalogue5")
+                                         DTOutput("catalogue5")
                                        ))),
 ##### 1.1.6. 82XF INPUT #######
                             tabPanel("82XF",
@@ -221,7 +222,7 @@ tabPanel("CEX",
                                          actionButton("XFgo", "Submit")
                                        ),
                                        mainPanel(
-                                         dataTableOutput("catalogue6")
+                                         DTOutput("catalogue6")
                                        )))
                  ),
 ##### 1.2. Morphology Service Input #######
@@ -236,7 +237,7 @@ tabPanel("CEX",
                               actionButton("Morphgo", "Submit")
                             ),
                             mainPanel(
-                              dataTableOutput("MorpCorpus")
+                              DTOutput("MorpCorpus")
                             ))),
 ##### 1.3. Stop Words #######
                  
@@ -250,7 +251,7 @@ tabPanel("CEX",
                               actionButton("stopwordgo", "Submit")
                             ),
                             mainPanel(
-                              dataTableOutput("stopwords")
+                              DTOutput("stopwords")
                             ))),
                  
 ##### 1.4. Topic Modelling Input #######
@@ -272,7 +273,7 @@ tabPanel("CEX",
                               actionButton("TMgo", "Submit")
                             ),
                             mainPanel(
-                              dataTableOutput("topicmodelling")
+                              DTOutput("topicmodelling")
                             ))),
 ##### 1.5. Topic Modelling Visualisation Input #######
                  
@@ -286,10 +287,10 @@ tabPanel("CEX",
                  navbarMenu("LDA Tables", 
                             tabPanel("DocumentTopic (θ)",
                                      uiOutput("thetaUI"),
-                                     mainPanel(dataTableOutput("theta"))),
+                                     mainPanel(DTOutput("theta"))),
                             tabPanel("TermTopic (φ)", 
                                      uiOutput("phiUI"),
-                                     mainPanel(dataTableOutput("phi")))
+                                     mainPanel(DTOutput("phi")))
                  ),
                  
 ##### 1.7. Explore #######
@@ -345,7 +346,7 @@ tabPanel("CEX",
                                          actionButton("CorpusDownloadGo", "Preview"),
                                          downloadButton('downloadCorpus', 'Download')
                                        ),
-                                       mainPanel(dataTableOutput("download_corpus")))),
+                                       mainPanel(DTOutput("download_corpus")))),
                             tabPanel("Phi-Table",
                                      sidebarLayout(
                                        sidebarPanel(
@@ -353,7 +354,7 @@ tabPanel("CEX",
                                          uiOutput("dlphiUI"),
                                          downloadButton('downloadphi', 'Download')
                                        ),
-                                       mainPanel(dataTableOutput("prevphi")))),
+                                       mainPanel(DTOutput("prevphi")))),
                             tabPanel("Theta-Table",
                                      sidebarLayout(
                                        sidebarPanel(
@@ -361,7 +362,7 @@ tabPanel("CEX",
                                          uiOutput("dlthetaUI"),
                                          downloadButton('downloadtheta', 'Download')
                                        ),
-                                       mainPanel(dataTableOutput("prevtheta"))))
+                                       mainPanel(DTOutput("prevtheta"))))
                  )
 )
 
@@ -399,7 +400,7 @@ server <- function(input, output, session) {
     selectInput("cts_urn", label = "CTS URN", choices = urns) 
     })
   
-  output$catalogue <- renderDataTable({
+  output$catalogue <- renderDT({
     if (input$apigo == 0)
       return()
     
@@ -426,7 +427,7 @@ server <- function(input, output, session) {
   })
 ##### 2.1.2. Output Local Capitains API Corpus ####### 
   
-  output$catalogue2 <- renderDataTable({
+  output$catalogue2 <- renderDT({
     if (input$CAPITAINSgo == 0)
       return()
     
@@ -463,7 +464,7 @@ server <- function(input, output, session) {
     selectInput("serverRDS", label = "Choose RDS file", choices = ServerCorpora)
     })
   
-  output$catalogue3 <- renderDataTable({
+  output$catalogue3 <- renderDT({
     
     if (input$RDSgo == 0)
       return()
@@ -479,7 +480,7 @@ server <- function(input, output, session) {
   
 ##### 2.1.4. Output CSV Corpus #######
   
-  output$catalogue4 <- renderDataTable({
+  output$catalogue4 <- renderDT({
     
     if (input$CSVgo == 0)
       return()
@@ -531,7 +532,7 @@ server <- function(input, output, session) {
 
 ##### 2.1.4.1 Output CEX Corpus #######
   
-  output$catalogueCEX <- renderDataTable({
+  output$catalogueCEX <- renderDT({
     if (input$CEXgo == 0)
       return()
 
@@ -557,7 +558,7 @@ server <- function(input, output, session) {
 
 ##### 2.1.5. Output Treebank Corpus #######
   
-  output$catalogue5 <- renderDataTable({
+  output$catalogue5 <- renderDT({
     
     if (input$Treebankgo == 0)
       return()
@@ -617,7 +618,7 @@ server <- function(input, output, session) {
   
 ##### 2.1.6. Output 82XF Corpus #######
   
-  output$catalogue6 <- renderDataTable({
+  output$catalogue6 <- renderDT({
     
     if (input$XFgo == 0)
       return()
@@ -1109,7 +1110,7 @@ server <- function(input, output, session) {
     return(corrected_corpus_df)
   })
   
-  output$MorpCorpus <- renderDataTable({ # Print the result to the main panel
+  output$MorpCorpus <- renderDT({ # Print the result to the main panel
     if(!is.null(morph())) morph()
   })
   
@@ -1140,7 +1141,7 @@ server <- function(input, output, session) {
     selectInput("sw_corpus", label = "Choose RDS file", choices = ServerCorpora)
   })
   
-  output$stopwords <- renderDataTable({
+  output$stopwords <- renderDT({
     if (input$stopwordgo == 0)
       return()
     
@@ -1205,7 +1206,7 @@ server <- function(input, output, session) {
     selectInput("stopwordlist", label = "Choose SW List", choices = ServerSW)
   })
   
-  output$topicmodelling <- renderDataTable({
+  output$topicmodelling <- renderDT({
     
     req(input$CTMfile)
     CTMfilename <- gsub("[^a-zA-Z0-9]", "", input$CTMfile)
@@ -1428,7 +1429,7 @@ server <- function(input, output, session) {
     selectInput("ThetaTable", label = "Choose TM", choices = ServerTheta, width = "100%")
     })
   
-  output$theta <- renderDataTable({
+  output$theta <- renderDT({
     inFile <- input$ThetaTable
     
     if (is.null(inFile))
@@ -1447,7 +1448,7 @@ server <- function(input, output, session) {
     selectInput("PhiTable", label = "Choose TM", choices = ServerPhi, width = "100%")
     })
 
-  output$phi <- renderDataTable({
+  output$phi <- renderDT({
     inFile <- input$PhiTable
     
     if (is.null(inFile))
@@ -1638,7 +1639,7 @@ server <- function(input, output, session) {
     selectInput("download_corpus", label = "Corpus", choices = ServerCorpus)
   })
   
-  output$download_corpus <- renderDataTable({
+  output$download_corpus <- renderDT({
     if (input$CorpusDownloadGo == 0)
       return()
     file_name <- input$download_corpus
@@ -1709,7 +1710,7 @@ server <- function(input, output, session) {
     selectInput("ThetaPhiDL", label = "Choose TM", choices = ServerPhi)
   })
   
-  output$prevphi <- renderDataTable({
+  output$prevphi <- renderDT({
     inFile <- input$ThetaPhiDL
     
     if (is.null(inFile))
@@ -1744,7 +1745,7 @@ server <- function(input, output, session) {
     selectInput("ThetaTableDL", label = "Choose TM", choices = ServerTheta)
   })
   
-  output$prevtheta <- renderDataTable({
+  output$prevtheta <- renderDT({
     inFile <- input$ThetaTableDL
     
     if (is.null(inFile))

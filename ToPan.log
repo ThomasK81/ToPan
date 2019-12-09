@@ -1,4 +1,29 @@
+Loading required package: bitops
+data.table 1.12.6 using 4 threads (see ?getDTthreads).  Latest news: r-datatable.com
 
-Listening on http://127.0.0.1:7844
+Attaching package: ‘jsonlite’
+
+The following object is masked from ‘package:shiny’:
+
+    validate
+
+
+Attaching package: ‘DT’
+
+The following objects are masked from ‘package:shiny’:
+
+    dataTableOutput, renderDataTable
+
+
+Listening on http://127.0.0.1:7627
+Warning in dir.create(foldername, recursive = TRUE) :
+  './www/data/phi0972/phi001' already exists
+Warning in dir.create(out.dir) :
+  './www/data/phi0972/phi001_MF200_K20_alph002_eta002_I500_S73_pca_vis' already exists
+Loading required namespace: servr
+Warning in write.table(theta, append = T, file = CTMfilename, row.names = F,  :
+  appending column names to file
+Warning in write.table(phi, append = T, file = CTMfilename, quote = F, sep = "#") :
+  appending column names to file
 
 
